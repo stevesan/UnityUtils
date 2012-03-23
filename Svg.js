@@ -1,5 +1,10 @@
 #pragma strict
 
+import System.IO;
+
+//----------------------------------------
+//  TODO - add proper Mesh2D stuff, ie. edge list
+//----------------------------------------
 class SvgPathBuilder
 {
 	private var prevPt:Vector2 = Vector2(0,0);
@@ -121,5 +126,43 @@ class SvgPathBuilder
 
 		for( var i = 0; i < ptsBuiltin.length; i++ )
 			ptsBuiltin[i] -= c;
+	}
+
+	//----------------------------------------
+	//	This executes commands as outputted by my Inkscape extension.
+	//	An example of valid 'cmdsText' :
+	// M 331.42857 232.36218
+	// L 437.14286 395.21933
+	// L 631.42857 358.07647
+	// L 505.71429 543.79075
+	// L 574.28571 806.6479
+	// L 360.0 592.36218
+	// L 174.28571 755.21933
+	// L 277.14286 538.07647
+	// L 102.85714 406.6479
+	// L 262.85714 380.93361
+	// Z
+	//----------------------------------------
+	function ExecuteCommands( reader:StringReader, height:float, scale:float, offset:Vector2 )
+	{
+		var line = reader.ReadLine();
+		while( line != null )
+		{
+			var parts = line.Split( [' '], System.StringSplitOptions.RemoveEmptyEntries );
+			if( parts[0] == 'M' )
+			{
+				var p = scale*Vector2( parseFloat(parts[1]), height-parseFloat(parts[2]) );
+				Move( p+offset, false );
+			}
+			else if( parts[0] == 'L' )
+			{
+				p = scale*Vector2( parseFloat(parts[1]), height-parseFloat(parts[2]) );
+				Line( p+offset, false );
+			}
+			else if( parts[0] == 'Z' )
+				Close();
+
+			line = reader.ReadLine();
+		}
 	}
 }
