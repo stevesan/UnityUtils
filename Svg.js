@@ -143,10 +143,11 @@ class SvgPathBuilder
 	// L 262.85714 380.93361
 	// Z
 	//----------------------------------------
-	function ExecuteCommands( reader:StringReader, height:float, scale:float, offset:Vector2 )
+	function ExecuteCommands( reader:StringReader, height:float, scale:float, offset:Vector2, numCmds:int )
 	{
+		var numCmdsRead = 0;
 		var line = reader.ReadLine();
-		while( line != null )
+		while( line != null && (numCmdsRead < numCmds || numCmds==-1) )
 		{
 			var parts = line.Split( [' '], System.StringSplitOptions.RemoveEmptyEntries );
 			if( parts[0] == 'M' )
@@ -162,7 +163,12 @@ class SvgPathBuilder
 			else if( parts[0] == 'Z' )
 				Close();
 
-			line = reader.ReadLine();
+			numCmdsRead++;
+			if( numCmds != -1 && numCmdsRead >= numCmds )
+				// make sure we don't read an extra one
+				break;
+			else
+				line = reader.ReadLine();
 		}
 	}
 }

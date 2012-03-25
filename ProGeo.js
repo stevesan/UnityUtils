@@ -185,6 +185,12 @@ class Mesh2D
 		}
 	}
 
+	function ScalePoints( s:float )
+	{
+		for( var i = 0; i < pts.length; i++ )
+			pts[i] *= s;
+	}
+
 	function Reflect( l0:Vector2, l1:Vector2, keepRight:boolean )
 	{
 		var npts = pts.length;
