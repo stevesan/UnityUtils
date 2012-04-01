@@ -289,6 +289,26 @@ class Mesh2D
 		edgeA = newA.ToBuiltin(int);
 		edgeB = newB.ToBuiltin(int);
 	}
+
+	function Append( other:Mesh2D )
+	{
+		if( pts == null ) pts = new Vector2[0];
+		if( edgeA == null ) edgeA = new int[0];
+		if( edgeB == null ) edgeB = new int[0];
+		var oldNumPts = pts.length;
+		var oldNumEdges = edgeA.length;
+
+		pts = Utils.Concatenate( pts, other.pts );
+		edgeA = Utils.Concatenate( edgeA, other.edgeA );
+		edgeB = Utils.Concatenate( edgeB, other.edgeB );
+
+		// need to increment other edge indices
+		for( var i = 0; i < other.edgeA.length; i++ )
+		{
+			edgeA[ oldNumEdges + i ] += oldNumPts;
+			edgeB[ oldNumEdges + i ] += oldNumPts;
+		}
+	}
 }
 
 static function BuildBeltMesh(

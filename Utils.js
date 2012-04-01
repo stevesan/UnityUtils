@@ -58,6 +58,26 @@ static function Duplicate( a:int[] ) : int[]
 static function Duplicate( a:float[] ) : float[]
 { var d = new float[a.length]; for( var i = 0; i < a.length; i++ ) d[i] = a[i]; return d; }
 
+static function Concatenate( a:Vector2[], b:Vector2[] ) : Vector2[]
+{
+	var c = new Vector2[ a.length + b.length ];
+	for( var i = 0; i < a.length; i++ )
+		c[i] = a[i];
+	for( var j = 0; j < b.length; j++ )
+		c[ a.length+j ] = b[j];
+	return c;
+}
+
+static function Concatenate( a:int[], b:int[] ) : int[]
+{
+	var c = new int[ a.length + b.length ];
+	for( var i = 0; i < a.length; i++ )
+		c[i] = a[i];
+	for( var j = 0; j < b.length; j++ )
+		c[ a.length+j ] = b[j];
+	return c;
+}
+
 static function ToVector3( v:Vector2 ) : Vector3
 {
 	return ToVector3( v, 0.0 );
