@@ -401,15 +401,20 @@ static function TriangulatePolygon( poly:Polygon2D, mesh:Mesh )
 		var topVid = sortedVerts[ topSid ].id;
 
 // TEMP TEMP
-		if( true||nbors.AreNeighbors( aVid, topVid ) )
+		if( nbors.AreNeighbors( aVid, topVid ) )
 		{
 			var botCase = (nbors.GetPrev( aVid ) == topVid);
 
 			while( sidStack.Count > 0 ) {
 				var bSid = sidStack.Pop();
-				if( sidStack.Count == 0 ) break;
 				var bVid = sortedVerts[ bSid ].id;
-				var cSid = sidStack.Peek();
+				if( sidStack.Count == 0 ) {
+					// 
+					sidStack.Push( bSid );
+					sidStack.Push( aSid );
+					break;
+				}
+				var cSid = sidStack.Pop();
 				var cVid = sortedVerts[ cSid ].id;
 
 				// see if this makes a valid inside-polygon triangle
@@ -436,9 +441,11 @@ static function TriangulatePolygon( poly:Polygon2D, mesh:Mesh )
 
 				if( tri != null ) {
 					tris.Add( tri );
+					sidStack.Push( cSid );
 				}
 				else {
-					// we're done. Push back on the last one
+					// couldn't make a tri, push these guys back on, and we're done
+					sidStack.Push( cSid );
 					sidStack.Push( bSid );
 					sidStack.Push( aSid );
 					break;
@@ -449,6 +456,7 @@ static function TriangulatePolygon( poly:Polygon2D, mesh:Mesh )
 			// not neighbors
 			while( sidStack.Count > 0 ) {
 				bSid = sidStack.Pop();
+				// was this our last one?
 				if( sidStack.Count == 0 ) break;
 				bVid = sortedVerts[ bSid ].id;
 				cSid = sidStack.Pop();
@@ -464,12 +472,18 @@ static function TriangulatePolygon( poly:Polygon2D, mesh:Mesh )
 					tri.verts[0] = aVid;
 					tri.verts[1] = cVid;
 					tri.verts[2] = bVid;
+					tris.Add(tri);
 				}
 				else if( Math2D.IsLeftOfLine( bPt, cPt, aPt ) ) {
 					tri.verts[0] = aVid;
 					tri.verts[1] = bVid;
 					tri.verts[2] = cVid;
+					tris.Add(tri);
 				}
+				// don't add degen tris
+				
+				// put C back on for the next iter
+				sidStack.Push( cSid );
 			}
 
 			// done
