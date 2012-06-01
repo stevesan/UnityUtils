@@ -1,5 +1,7 @@
 #pragma strict
 
+import System.Collections.Generic;
+
 //----------------------------------------
 //  Various procedural geometry tools
 //----------------------------------------
@@ -19,7 +21,7 @@ static function Stroke2D( pts:Vector2[], width:float, mesh:Mesh )
 	var a = pts[0];
 	var b = pts[1];
 	var e0 = b-a;
-	var n = Utils.PerpCCW( e0 ).normalized;
+	var n = Math2D.PerpCCW( e0 ).normalized;
 	vertices[0] = a + n*radius;
 	vertices[1] = a - n*radius;
 	uvs[ 0 ] = Vector2( 0,0 );
@@ -45,7 +47,7 @@ static function Stroke2D( pts:Vector2[], width:float, mesh:Mesh )
 		var dtheta = theta1 - theta0;
 		var alpha = radius * Mathf.Tan( dtheta/2.0 );
 
-		n = Utils.PerpCCW( e0 ).normalized;
+		n = Math2D.PerpCCW( e0 ).normalized;
 		vertices[ 2*i ] = p1+radius*n - alpha*e0n;
 		vertices[ 2*i+1 ] = p1-radius*n + alpha*e0n;
 
@@ -58,7 +60,7 @@ static function Stroke2D( pts:Vector2[], width:float, mesh:Mesh )
 	a = pts[ npts-2 ];
 	b = pts[ npts-1 ];
 	e0 = b-a;
-	n = Utils.PerpCCW( e0 ).normalized;
+	n = Math2D.PerpCCW( e0 ).normalized;
 	vertices[ 2*npts-2 ] = b + n*radius;
 	vertices[ 2*npts-1 ] = b - n*radius;
 	uvs[ 2*npts-2 ] = Vector2( 0, 1 );
@@ -116,7 +118,7 @@ static function ClipByLine(
 	}
 
 	var lineDir = (l1-l0).normalized;
-	var rightDir = -1 * Utils.PerpCCW( lineDir ).normalized;
+	var rightDir = -1 * Math2D.PerpCCW( lineDir ).normalized;
 
 	// figure out which line segs cross the line
 	var ptIsOnRight = new boolean[ npts ];
@@ -152,7 +154,7 @@ static function ClipByLine(
 			// add the intersection point
 			var p0 = pts[i];
 			var p1 = pts[(i+1)%npts];
-			var intx = Utils.Intersect2DLines( l0, l1, p0, p1 );
+			var intx = Math2D.Intersect2DLines( l0, l1, p0, p1 );
 			newPts.Push(intx);
 		}
 	}
@@ -160,20 +162,26 @@ static function ClipByLine(
 	return newPts;
 }
 
-class Mesh2D
+//----------------------------------------
+//  TODO - Mes
+//----------------------------------------
+class Polygon2D
 {
 	var pts : Vector2[] = null;
 	var edgeA : int[] = null;
 	var edgeB : int[] = null;
 
-	function Duplicate() : Mesh2D
+	function Duplicate() : Polygon2D
 	{
-		var dupe = new Mesh2D();
+		var dupe = new Polygon2D();
 		dupe.pts = Utils.Duplicate( pts );
 		dupe.edgeA = Utils.Duplicate( edgeA );
 		dupe.edgeB = Utils.Duplicate( edgeB );
 		return dupe;
 	}
+
+	function GetNumVertices() : int { return pts.length; }
+	function GetNumEdges() : int { return edgeA.length; }
 
 	function DebugDraw( color:Color, dur:float )
 	{
@@ -203,7 +211,7 @@ class Mesh2D
 			l1 = temp;
 		}
 		var lineDir = (l1-l0).normalized;
-		var rightDir = -1 * Utils.PerpCCW( lineDir ).normalized;
+		var rightDir = -1 * Math2D.PerpCCW( lineDir ).normalized;
 
 		// see which points are on the right side
 		var ptIsOnRight = new boolean[ npts ];
@@ -225,7 +233,7 @@ class Mesh2D
 				old2new[i] = newPts.length-1;
 
 				// add reflection
-				newPts.Push( Utils.Reflect2D( pts[i], l0, l1 ) );
+				newPts.Push( Math2D.Reflect2D( pts[i], l0, l1 ) );
 				pt2refl[i] = newPts.length-1;
 			}
 		}
@@ -252,7 +260,7 @@ class Mesh2D
 			else if( ptIsOnRight[a] && !ptIsOnRight[b] )
 			{
 				// add the intersection point
-				var intx = Utils.Intersect2DLines( l0, l1, pts[a], pts[b] );
+				var intx = Math2D.Intersect2DLines( l0, l1, pts[a], pts[b] );
 				newPts.Push( intx );
 				var c = newPts.length-1;
 
@@ -267,7 +275,7 @@ class Mesh2D
 			else if( !ptIsOnRight[a] && ptIsOnRight[b] )
 			{
 				// add the intersection point
-				intx = Utils.Intersect2DLines( l0, l1, pts[a], pts[b] );
+				intx = Math2D.Intersect2DLines( l0, l1, pts[a], pts[b] );
 				newPts.Push( intx );
 				c = newPts.length-1;
 
@@ -290,7 +298,7 @@ class Mesh2D
 		edgeB = newB.ToBuiltin(int);
 	}
 
-	function Append( other:Mesh2D )
+	function Append( other:Polygon2D )
 	{
 		if( pts == null ) pts = new Vector2[0];
 		if( edgeA == null ) edgeA = new int[0];
@@ -309,6 +317,183 @@ class Mesh2D
 			edgeB[ oldNumEdges + i ] += oldNumPts;
 		}
 	}
+}
+
+//----------------------------------------
+//  For efficient vertex-neighbor queries
+//----------------------------------------
+class PolyVertexNbors
+{
+	private var data:int[];
+
+	function GetPrev( vid:int ):int { return data[ 2*vid + 0 ]; }
+	function GetNext( vid:int ):int { return data[ 2*vid + 1 ]; }
+
+	function SetPrev( vid:int, nbor:int ) { data[ 2*vid + 0 ] = nbor; }
+	function SetNext( vid:int, nbor:int ) { data[ 2*vid + 1 ] = nbor; }
+
+	function AreNeighbors( a:int, b:int ) {
+		return GetPrev( a ) == b || GetPrev( b ) == a;
+	}
+
+	function Reset( poly:Polygon2D )
+	{
+		data = new int[ 2*poly.GetNumVertices() ];
+		for( var eid = 0; eid < poly.GetNumEdges(); eid++ )
+		{
+			var a = poly.edgeA[ eid ];
+			var b = poly.edgeB[ eid ];
+
+			SetPrev( b, a );
+			SetNext( a, b );
+		}
+	}
+}
+
+class Vector3IdPair {
+	var v : Vector3;
+	var id : int;
+
+	static function CompareByX( a:Vector3IdPair, b:Vector3IdPair ) {
+		return Mathf.RoundToInt( Mathf.Sign( a.v.x - b.v.x ) );
+	}
+}
+
+class TriIndices {
+	var verts = new int[3];
+}
+
+//----------------------------------------
+//	O( n log n) polygon triangulation algorithm
+//  Reference: http://www.cs.ucsb.edu/~suri/cs235/Triangulation.pdf
+//----------------------------------------
+static function TriangulatePolygon( poly:Polygon2D, mesh:Mesh )
+{
+	var sortedVerts = new List.<Vector3IdPair>();
+
+	// first just copy over the vertices - we introduce no new verts using this triangulation algorithm
+	for( var i = 0; i < poly.GetNumVertices(); i++ ) {
+		var pair = new Vector3IdPair();
+		pair.v = poly.pts[i];
+		pair.id = i;
+		sortedVerts.Add( pair );
+	}
+
+	// Sort vertices by x
+	sortedVerts.Sort( Vector3IdPair.CompareByX );
+
+	// create nbor query datastructure
+	var nbors = new PolyVertexNbors();
+	nbors.Reset( poly );
+
+	// Triangulate
+	var tris = new List.<TriIndices>();
+
+	var sidStack = new Stack.<int>();
+	sidStack.Push( 0 );
+	sidStack.Push( 1 );
+	for( var aSid = 2; aSid < sortedVerts.Count; aSid++ )
+	{
+		var aVid = sortedVerts[ aSid ].id;
+		var aPt = poly.pts[ aVid ];
+
+		var topSid = sidStack.Peek();
+		var topVid = sortedVerts[ topSid ].id;
+
+// TEMP TEMP
+		if( true||nbors.AreNeighbors( aVid, topVid ) )
+		{
+			var botCase = (nbors.GetPrev( aVid ) == topVid);
+
+			while( sidStack.Count > 0 ) {
+				var bSid = sidStack.Pop();
+				if( sidStack.Count == 0 ) break;
+				var bVid = sortedVerts[ bSid ].id;
+				var cSid = sidStack.Peek();
+				var cVid = sortedVerts[ cSid ].id;
+
+				// see if this makes a valid inside-polygon triangle
+				var bPt = poly.pts[ bVid ];
+				var cPt = poly.pts[ cVid ];
+
+				var tri:TriIndices = null;
+				if( botCase ) {
+					if( Math2D.IsRightOfLine( bPt, cPt, aPt ) ) {
+						tri = new TriIndices();
+						tri.verts[0] = aVid;
+						tri.verts[1] = cVid;
+						tri.verts[2] = bVid;
+					}
+				}
+				else {
+					if( Math2D.IsLeftOfLine( bPt, cPt, aPt ) ) {
+						tri = new TriIndices();
+						tri.verts[0] = aVid;
+						tri.verts[1] = bVid;
+						tri.verts[2] = cVid;
+					}
+				}
+
+				if( tri != null ) {
+					tris.Add( tri );
+				}
+				else {
+					// we're done. Push back on the last one
+					sidStack.Push( bSid );
+					sidStack.Push( aSid );
+					break;
+				}
+			}
+		}
+		else {
+			// not neighbors
+			while( sidStack.Count > 0 ) {
+				bSid = sidStack.Pop();
+				if( sidStack.Count == 0 ) break;
+				bVid = sortedVerts[ bSid ].id;
+				cSid = sidStack.Pop();
+				cVid = sortedVerts[ cSid ].id;
+
+				// see if this makes a valid inside-polygon triangle
+				bPt = poly.pts[ bVid ];
+				cPt = poly.pts[ cVid ];
+
+				tri = new TriIndices();
+
+				if( Math2D.IsRightOfLine( bPt, cPt, aPt ) ) {
+					tri.verts[0] = aVid;
+					tri.verts[1] = cVid;
+					tri.verts[2] = bVid;
+				}
+				else if( Math2D.IsLeftOfLine( bPt, cPt, aPt ) ) {
+					tri.verts[0] = aVid;
+					tri.verts[1] = bVid;
+					tri.verts[2] = cVid;
+				}
+			}
+
+			// done
+			sidStack.Push( topSid );
+			sidStack.Push( aSid );
+		}
+	}
+
+	//----------------------------------------
+	//  Finally, transfer to the mesh
+	//----------------------------------------
+	var meshVerts = new Vector3[ poly.GetNumVertices() ];
+	var triangles = new int[ 3*tris.Count ];
+
+	for( i = 0; i < poly.GetNumVertices(); i++ ) {
+		meshVerts[i] = poly.pts[i];
+	}
+	for( i = 0; i < tris.Count; i++ ) {
+		for( var j = 0; j < 3; j++ )
+			triangles[ 3*i+j ] = tris[i].verts[j];
+	}
+
+	mesh.vertices = meshVerts;
+	mesh.triangles = triangles;
 }
 
 static function BuildBeltMesh(
