@@ -41,6 +41,33 @@ static function ClosestPointOn2DLine( p:Vector2, a:Vector2, b:Vector2 ) : Vector
 	return c;
 }
 
+static function CCWAngle( a1:Vector2, a2:Vector2, b1:Vector2, b2:Vector2 ) : float
+{
+	var anorm = (a2-a1).normalized;
+	var bnorm = (b2-b1).normalized;
+	return CCWAngle( anorm, bnorm );
+}
+
+//----------------------------------------
+//  
+//----------------------------------------
+static function CCWAngle( anorm:Vector2, bnorm:Vector2 ) : float
+{
+	// use the clamp, sometimes numerical issues cause the dot product to be off even if the norms are normalized
+	var thetaUp = Mathf.Acos( Mathf.Clamp( Vector2.Dot( anorm, bnorm ), -1.0, 1.0 ) );
+
+	// check if 
+	var aup = PerpCCW( anorm );
+	if( Vector2.Dot( aup, bnorm ) < 0.0 ) {
+		// b is pointing in the -Y side
+		// flip the angle
+		var thetaDown = 2*Mathf.PI - thetaUp;
+		return thetaDown;
+	}
+	else
+		return thetaUp;
+}
+
 //----------------------------------------
 //  Reflects p along the given line a->b
 //----------------------------------------

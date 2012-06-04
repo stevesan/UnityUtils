@@ -336,26 +336,62 @@ class PolyVertexNbors
 		return GetPrev( a ) == b || GetPrev( b ) == a;
 	}
 
-	function Reset( poly:Polygon2D )
+	function IsUsed( vid:int ) { return data[2*vid+0] != -1; }
+
+	function Reset( poly:Polygon2D, isClockwise:boolean )
 	{
 		data = new int[ 2*poly.GetNumVertices() ];
+		for( var i = 0; i < data.length; i++ )
+			data[i] = -1;
+
 		for( var eid = 0; eid < poly.GetNumEdges(); eid++ )
 		{
 			var a = poly.edgeA[ eid ];
 			var b = poly.edgeB[ eid ];
 
+			if( isClockwise ) {
+				a = poly.edgeB[ eid ];
+				b = poly.edgeA[ eid ];
+			}
+
+			SetPrev( b, a );
+			SetNext( a, b );
+		}
+	}
+
+	// a variant for a sub-polygon
+	function Reset( numVerts:int, edges:List.<int>, activeEdges:List.<int> )
+	{
+		data = new int[ 2*numVerts ];
+		for( var i = 0; i < 2*numVerts; i++ )
+			data[i] = -1;
+
+		for( var edgeNum = 0; edgeNum < activeEdges.Count; edgeNum++ ) {
+			var eid = activeEdges[edgeNum];
+			var a = edges[ 2*eid+0 ];
+			var b = edges[ 2*eid+1 ];
 			SetPrev( b, a );
 			SetNext( a, b );
 		}
 	}
 }
 
-class Vector3IdPair {
+static function CompareByXThenY( a:Vector2, b:Vector2 ) 
+{
+	if( a.x == b.x ) {
+		// order by Y coordinate instead
+		return Mathf.RoundToInt( Mathf.Sign( a.y - b.y ) );
+	}
+	else
+		return Mathf.RoundToInt( Mathf.Sign( a.x - b.x ) );
+}
+
+class Vector2IdPair {
 	var v : Vector3;
 	var id : int;
 
-	static function CompareByX( a:Vector3IdPair, b:Vector3IdPair ) {
-		return Mathf.RoundToInt( Mathf.Sign( a.v.x - b.v.x ) );
+	static function CompareByX( a:Vector2IdPair, b:Vector2IdPair ) {
+		return ProGeo.CompareByXThenY( a.v, b.v );
 	}
 }
 
@@ -364,43 +400,217 @@ class TriIndices {
 }
 
 //----------------------------------------
-//	O( n log n) polygon triangulation algorithm
-//  Reference: http://www.cs.ucsb.edu/~suri/cs235/Triangulation.pdf
+//  
 //----------------------------------------
-static function TriangulatePolygon( poly:Polygon2D, mesh:Mesh )
+static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise:boolean )
 {
-	var sortedVerts = new List.<Vector3IdPair>();
+	var NV = poly.GetNumVertices();
 
-	// first just copy over the vertices - we introduce no new verts using this triangulation algorithm
+	// create nbor query datastructure
+	var nbors = new PolyVertexNbors();
+	nbors.Reset( poly, isClockwise );
+
+	// every 2-block is an oriented edge of vertex IDs
+	var edges = new List.<int>();
+
+	// create oriented edges of original polygon
+	for( var vid = 0; vid < NV; vid++ ) {
+		edges.Add( vid );
+		edges.Add( nbors.GetNext( vid ) );
+	}
+
+	//----------------------------------------
+	//  Now figure out the split-vertices and add two diagonal edges per split
+	//----------------------------------------
+
+	// First we need to sort the verts by X for determining diagonal ends
+	var sortedVerts = new List.<Vector2IdPair>();
+
 	for( var i = 0; i < poly.GetNumVertices(); i++ ) {
-		var pair = new Vector3IdPair();
+		var pair = new Vector2IdPair();
 		pair.v = poly.pts[i];
 		pair.id = i;
 		sortedVerts.Add( pair );
 	}
 
-	// Sort vertices by x
-	sortedVerts.Sort( Vector3IdPair.CompareByX );
+	sortedVerts.Sort( Vector2IdPair.CompareByX );
 
-	// create nbor query datastructure
-	var nbors = new PolyVertexNbors();
-	nbors.Reset( poly );
+	// identify split verts and add diagonal edges
+	// We add two opposing edges, one for each of the two monotone piece
+	// We use the X-sorting to determine diagonal edges
+	for( var currSid = 0; currSid < NV; currSid++ ) {
+		var currVid = sortedVerts[ currSid ].id;
+		var currPos = poly.pts[ currVid ];
+		var prevPos = poly.pts[ nbors.GetPrev(currVid) ];
+		var nextPos = poly.pts[ nbors.GetNext(currVid) ];
 
-	// Triangulate
+		// Note our use of CompareByX here, which actually compares by X and then also Y
+		// TODO - not sure how vertically co-linear points would be handled here..hm
+		if( CompareByXThenY( prevPos, currPos ) == CompareByXThenY( nextPos, currPos )
+				&& Math2D.IsLeftOfLine( currPos, prevPos, nextPos ) ) {
+			// this is a split/merge vertex
+			// create diagonal edges to a nearby vertex
+			var diagVid = -1;
+			if( (prevPos.x-currPos.x) > 0.0 ) {
+				Utils.Assert( currSid != 0 );
+				diagVid = sortedVerts[currSid-1].id;
+			}
+			else {
+				// TODO think about the case where prevPos.x == currPos.x...
+				Utils.Assert( currSid != NV-1 );
+				diagVid = sortedVerts[ currSid+1 ].id;
+			}
+
+			// add the edges, one going one way and one the other
+			// it will be shared by two adjacent monotone pieces
+			edges.Add( currVid );
+			edges.Add( diagVid );
+			edges.Add( diagVid );
+			edges.Add( currVid );
+		}
+	}
+
+	//----------------------------------------
+	//  Traverse the graph to extract and triangulate monotone pieces
+	//----------------------------------------
+
+	// we'll store the tri specs in this list
 	var tris = new List.<TriIndices>();
 
+	var NE = edges.Count/2;
+	var edgeVisited = new boolean[ NE ];
+	for( var eid = 0; eid < NV; eid++ )
+		edgeVisited[ eid ] = false;
+
+	var firstEid = 0;
+
+	while( firstEid < NV ) {
+		// move the first vid cursor to the next unvisited edge
+		while( firstEid < NV && edgeVisited[ firstEid ] )
+			firstEid++;
+
+		if( firstEid >= NV )
+			// all done
+			break;
+
+		// find a new monotone piece
+		var pieceEdges = new List.<int>();
+		pieceEdges.Add( firstEid );
+
+		var currEid = firstEid;
+
+		// follow the edge loop from firstEid until we hit the firstEid again
+		while( true ) {
+			edgeVisited[currEid] = true;
+			var currStart = edges[ 2*currEid ];
+			var currEnd = edges[ 2*currEid+1 ];
+
+			// find the outgoing edge from the current edge's end with the LARGEST angle
+			var bestEid = -1;
+			var bestAngle = 0.0;
+			var backToFirst = false;
+			// TODO - optimize this with a data struct so we're not doing an N^2 search for the next edge
+			for( var otherEid = 0; otherEid < NE; otherEid++ ) {
+				var otherStart = edges[ 2*otherEid ];
+				var otherEnd = edges[ 2*otherEid+1 ];
+
+				if( otherStart != currEnd )
+					continue;
+
+				// back to first? make sure we do this before the visited check,
+				// since obviously the first edge was visited
+				if( otherEid == firstEid ) {
+					backToFirst = true;
+					break;
+				}
+
+				if( edgeVisited[ otherEid ] )
+					continue;
+
+				// this is a next edge candidate
+				// compute CCW angle with curr edge
+				var otherAngle = Math2D.CCWAngle(
+						poly.pts[currEnd], poly.pts[currStart],	// yes, we are intentionally flipping. Draw it out for the CCW winding case
+						poly.pts[otherStart], poly.pts[otherEnd] );
+				if( bestEid == -1 || otherAngle > bestAngle ) {
+					bestEid = otherEid;
+					bestAngle = otherAngle;
+				}
+			}
+
+			if( backToFirst )
+				// done!
+				break;
+
+			// got the next edge
+			Utils.Assert( bestEid != -1 );
+			pieceEdges.Add( bestEid );
+			currEid = bestEid;
+		}
+
+		//----------------------------------------
+		//  Triangulate this piece
+		//----------------------------------------
+		TriangulateMonotonePolygon( sortedVerts, edges, pieceEdges, tris );
+	}
+
+	//----------------------------------------
+	//  Finally, transfer to the mesh
+	//----------------------------------------
+	var meshVerts = new Vector3[ poly.GetNumVertices() ];
+	var triangles = new int[ 3*tris.Count ];
+
+	for( i = 0; i < poly.GetNumVertices(); i++ ) {
+		meshVerts[i] = poly.pts[i];
+	}
+	for( i = 0; i < tris.Count; i++ ) {
+		for( var j = 0; j < 3; j++ )
+			triangles[ 3*i+j ] = tris[i].verts[j];
+	}
+
+	mesh.vertices = meshVerts;
+	mesh.triangles = triangles;
+	
+	Debug.Log('triangulated polygon to '+tris.Count+' triangles');
+}
+
+//----------------------------------------
+//	O( n log n) polygon triangulation algorithm
+//  Reference: http://www.cs.ucsb.edu/~suri/cs235/Triangulation.pdf
+//----------------------------------------
+static function TriangulateMonotonePolygon(
+		sortedVerts:List.<Vector2IdPair>,
+		edges:List.<int>,
+		pieceEdges:List.<int>,	// the edges that are part of the monotone piece
+		tris:List.<TriIndices> )
+{
+	var i = 0;
+	// create nbor query datastructure
+	var nbors = new PolyVertexNbors();
+	nbors.Reset( sortedVerts.Count, edges, pieceEdges );
+
 	var sidStack = new Stack.<int>();
-	sidStack.Push( 0 );
-	sidStack.Push( 1 );
-	for( var aSid = 2; aSid < sortedVerts.Count; aSid++ )
+
+	// push first two used vertices onto the stack
+	for( var aSid = 0; sidStack.Count < 2; aSid++ ) {
+		if( nbors.IsUsed( sortedVerts[aSid].id ) ) {
+			sidStack.Push( aSid );
+		}
+	}
+
+	// start right after the one last pushed
+	for( aSid = aSid; aSid < sortedVerts.Count; aSid++ )
 	{
 		var aVid = sortedVerts[ aSid ].id;
-		var aPt = poly.pts[ aVid ];
+		var aPt = sortedVerts[ aSid ].v;
+
+		// skips verts that aren't in the sub-piece
+		if( !nbors.IsUsed( aVid ) )
+			continue;
 
 		var topSid = sidStack.Peek();
 		var topVid = sortedVerts[ topSid ].id;
 
-// TEMP TEMP
 		if( nbors.AreNeighbors( aVid, topVid ) )
 		{
 			var botCase = (nbors.GetPrev( aVid ) == topVid);
@@ -418,8 +628,8 @@ static function TriangulatePolygon( poly:Polygon2D, mesh:Mesh )
 				var cVid = sortedVerts[ cSid ].id;
 
 				// see if this makes a valid inside-polygon triangle
-				var bPt = poly.pts[ bVid ];
-				var cPt = poly.pts[ cVid ];
+				var bPt = sortedVerts[ bSid ].v;
+				var cPt = sortedVerts[ cSid ].v;
 
 				var tri:TriIndices = null;
 				if( botCase ) {
@@ -463,8 +673,8 @@ static function TriangulatePolygon( poly:Polygon2D, mesh:Mesh )
 				cVid = sortedVerts[ cSid ].id;
 
 				// see if this makes a valid inside-polygon triangle
-				bPt = poly.pts[ bVid ];
-				cPt = poly.pts[ cVid ];
+				bPt = sortedVerts[ bSid ].v;
+				cPt = sortedVerts[ cSid ].v;
 
 				tri = new TriIndices();
 
@@ -492,22 +702,6 @@ static function TriangulatePolygon( poly:Polygon2D, mesh:Mesh )
 		}
 	}
 
-	//----------------------------------------
-	//  Finally, transfer to the mesh
-	//----------------------------------------
-	var meshVerts = new Vector3[ poly.GetNumVertices() ];
-	var triangles = new int[ 3*tris.Count ];
-
-	for( i = 0; i < poly.GetNumVertices(); i++ ) {
-		meshVerts[i] = poly.pts[i];
-	}
-	for( i = 0; i < tris.Count; i++ ) {
-		for( var j = 0; j < 3; j++ )
-			triangles[ 3*i+j ] = tris[i].verts[j];
-	}
-
-	mesh.vertices = meshVerts;
-	mesh.triangles = triangles;
 }
 
 static function BuildBeltMesh(
