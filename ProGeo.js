@@ -162,6 +162,16 @@ static function ClipByLine(
 	return newPts;
 }
 
+static function CompareByXThenY( a:Vector2, b:Vector2 ) 
+{
+	if( a.x == b.x ) {
+		// order by Y coordinate instead
+		return Mathf.RoundToInt( Mathf.Sign( a.y - b.y ) );
+	}
+	else
+		return Mathf.RoundToInt( Mathf.Sign( a.x - b.x ) );
+}
+
 //----------------------------------------
 //  TODO - Mes
 //----------------------------------------
@@ -360,7 +370,7 @@ class PolyVertexNbors
 	}
 
 	// a variant for a sub-polygon
-	function Reset( numVerts:int, edges:List.<int>, activeEdges:List.<int> )
+	function Reset( numVerts:int, edge2verts:List.<int>, activeEdges:List.<int> )
 	{
 		data = new int[ 2*numVerts ];
 		for( var i = 0; i < 2*numVerts; i++ )
@@ -368,22 +378,13 @@ class PolyVertexNbors
 
 		for( var edgeNum = 0; edgeNum < activeEdges.Count; edgeNum++ ) {
 			var eid = activeEdges[edgeNum];
-			var a = edges[ 2*eid+0 ];
-			var b = edges[ 2*eid+1 ];
+			var a = edge2verts[ 2*eid+0 ];
+			var b = edge2verts[ 2*eid+1 ];
 			SetPrev( b, a );
 			SetNext( a, b );
 		}
 	}
-}
 
-static function CompareByXThenY( a:Vector2, b:Vector2 ) 
-{
-	if( a.x == b.x ) {
-		// order by Y coordinate instead
-		return Mathf.RoundToInt( Mathf.Sign( a.y - b.y ) );
-	}
-	else
-		return Mathf.RoundToInt( Mathf.Sign( a.x - b.x ) );
 }
 
 class Vector2IdPair {
@@ -400,6 +401,220 @@ class TriIndices {
 }
 
 //----------------------------------------
+//  Helper class for simple poly triangulation
+//----------------------------------------
+class PlaneSweep
+{
+
+	//----------------------------------------
+	//  Pointers to helper info
+	//----------------------------------------
+	private var poly:Polygon2D;
+	private var edge2verts:List.<int>;
+	private var sortedVerts:List.<Vector2IdPair>;
+	private var nbors:PolyVertexNbors;
+
+	//----------------------------------------
+	//  Internal state
+	//----------------------------------------
+
+	class EdgeInfo {
+		var helperVertId:int;
+		var helperIsMerge:boolean;
+	}
+	private var edge2info = new List.<EdgeInfo>();
+
+	private var vert2prevEdge = new List.<int>();
+	private var vert2nextEdge = new List.<int>();
+	private var currSid:int;
+
+	//----------------------------------------
+	//  Performs the plane sweep algorithm and adds edges for a
+	//	monotone-polygon decompostion of the given polygon
+	//----------------------------------------
+	function Reset(
+			_poly:Polygon2D,
+			_edge2verts:List.<int>,	// this will be modified with new edges
+			_sortedVerts:List.<Vector2IdPair>,
+			_nbors:PolyVertexNbors )
+	{
+		poly = _poly;
+		edge2verts = _edge2verts;
+		sortedVerts = _sortedVerts;
+		nbors = _nbors;
+		currSid = 0;
+
+		//----------------------------------------
+		//  Compute vert2 edge tables
+		//----------------------------------------
+		var NE = edge2verts.Count;
+		vert2prevEdge = new List.<int>(NE);
+		vert2nextEdge = new List.<int>(NE);
+		for( var eid = 0; eid < NE; eid++ ) {
+			vert2nextEdge[ edge2verts[ 2*eid + 0 ] ] = eid;
+			vert2prevEdge[ edge2verts[ 2*eid + 1 ] ] = eid;
+		}
+
+		//----------------------------------------
+		//  Init swept edges table
+		//----------------------------------------
+		edge2info = new List.<EdgeInfo>(NE);
+		for( eid = 0; eid < NE; eid++ ) {
+			edge2info[eid] = null;
+		}
+	}
+
+	function GetEdgeStart( eid:int ) { return poly.pts[ edge2verts[2*eid+0] ]; }
+	function GetEdgeEnd( eid:int ) { return poly.pts[ edge2verts[2*eid+1] ]; }
+	function GetEdgeHelper( eid:int ) { return edge2info[ eid ].helperVertId; }
+
+	function FindEdgeAbove( p:Vector2 ) : int
+	{
+		var bestEid = -1;
+		var bestDist = 0.0;
+
+		for( var eid = 0; eid < edge2verts.Count; eid++ ) {
+			if( edge2info[eid] != null ) {
+				// edge is still in sweep
+				var y = Math2D.EvalLineAtX( GetEdgeStart(eid), GetEdgeEnd(eid), p.x );
+				if( y > p.y ) {
+					var dist = y-p.y;
+					if( bestEid == -1 || dist < bestDist ) {
+						bestEid = eid;
+						bestDist = dist;
+					}
+				}
+			}
+		}
+
+		return bestEid;
+	}
+
+	//----------------------------------------
+	//  Stuff for polygon triangulation
+	//----------------------------------------
+	enum VertType { REGULAR_TOP, REGULAR_BOTTOM, START, END, MERGE, SPLIT };
+
+	function EvalVertType( vid:int ) : VertType
+	{
+		var pos = poly.pts[ vid ];
+		var prevPos = poly.pts[ nbors.GetPrev( vid ) ];
+		var nextPos = poly.pts[ nbors.GetNext( vid ) ];
+		var prevCmp = ProGeo.CompareByXThenY( prevPos, pos );
+		var nextCmp = ProGeo.CompareByXThenY( nextPos, pos );
+
+		if( prevCmp == nextCmp ) {
+			// both on same "side", cannot be colinear
+			if( prevCmp < 0 ) {
+				// both on left
+				// assume CCW
+				if( Math2D.IsLeftOfLine( nextPos, prevPos, pos ) ) {
+					return VertType.END;
+				} else {
+					return VertType.MERGE;
+				}
+			} else {
+				// both on right
+				if( Math2D.IsLeftOfLine( nextPos, prevPos, pos ) ) {
+					return VertType.START;
+				} else {
+					return VertType.SPLIT;
+				}
+			}
+		} else {
+			if( prevCmp < 0 )
+				return VertType.REGULAR_BOTTOM;
+			else
+				return VertType.REGULAR_TOP;
+		}
+	}
+
+	private function ActivateEdge( eid:int, helper:int, isMerge:boolean )
+	{
+		var info = new EdgeInfo();
+		info.eid = eid;
+		info.helperVertId = helper;
+		info.helperIsMergeVert = isMerge;
+		edge2info[ eid ] = info;
+	}
+
+	private function DeactivateEdge( eid:int ) : int
+	{
+		var info = edge2info[ eid ];
+		edge2info[ eid ] = null;
+		return info.helperVertId;
+	}
+
+	private function AddDoubledDiagonal( v1:int, v2:int ) 
+	{
+		edge2verts.Add( v1 );
+		edge2verts.Add( v2 );
+		edge2verts.Add( v2 );
+		edge2verts.Add( v1 );
+	}
+
+	//----------------------------------------
+	//  Performs one step of the plane sweep algo.
+	//	Returns false if this was the last step
+	//----------------------------------------
+	function Step() : boolean
+	{
+		// safety
+		if( currSid >= sortedVerts.Count )
+			return false;
+
+		var NV = poly.pts.length;
+		var currVid = sortedVerts[ currSid ].id;
+		var currType = EvalVertType( currVid );
+		var e1 = vert2prevEdge[currVid];
+		var e2 = vert2nextEdge[currVid];
+		var aboveEdge = -1;
+
+		if( currType == VertType.START ) {
+			ActivateEdge( e1, currVid, false );
+		}
+		else if( currType == VertType.END ) {
+			if( edge2info[e1].helperIsMergeVert )
+				AddDoubledDiagonal( currVid, edge2info[e1].helperVertId );
+			if( edge2info[e2].helperIsMergeVert )
+				AddDoubledDiagonal( currVid, edge2info[e2].helperVertId );
+			DeactivateEdge( e1 );
+			DeactivateEdge( e2 );
+		}
+		else if( currType == VertType.SPLIT ) {
+			aboveEdge = FindEdgeAbove( poly.pts[currVid] );
+			AddDoubledDiagonal( currVid, edge2info[aboveEdge].helperVertId );
+			edge2info[aboveEdge].helperVertId = currVid;
+			ActivateEdge( e1, currVid, false );
+		}
+		else if( currType == VertType.MERGE ) {
+			DeactivateEdge( e1 );
+			DeactivateEdge( e2 );
+			aboveEdge = FindEdgeAbove( poly.pts[currVid] );
+			edge2info[aboveEdge].helperVertId = currVid;
+			edge2info[aboveEdge].helperIsMergeVert = true;
+		}
+		else if( currType == VertType.REGULAR_TOP ) {
+			if( edge2infos[e2].helperIsMergeVert )
+				AddDoubledDiagonal( currVid, edge2infos[e2].helperVertId );
+			DeactivateEdge( e2 );
+			ActivateEdge( e1, currVid, false );
+		}
+		else if( currType == VertType.REGULAR_BOTTOM ) {
+			if( edge2infos[e1].helperIsMergeVert )
+				AddDoubledDiagonal( currVid, edge2infos[e1].helperVertId );
+			DeactivateEdge( e1 );
+			ActivateEdge( e2, currVid, false );
+		}
+
+		// step
+		currSid++;
+		return currSid < sortedVerts.Count;
+	}
+}
+
+
+//----------------------------------------
 //  
 //----------------------------------------
 static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise:boolean )
@@ -411,21 +626,22 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 	nbors.Reset( poly, isClockwise );
 
 	// every 2-block is an oriented edge of vertex IDs
-	var edges = new List.<int>();
+	var edge2verts = new List.<int>();
 
 	// create oriented edges of original polygon
 	for( var vid = 0; vid < NV; vid++ ) {
-		edges.Add( vid );
-		edges.Add( nbors.GetNext( vid ) );
+		edge2verts.Add( vid );
+		edge2verts.Add( nbors.GetNext( vid ) );
 	}
 
 	//----------------------------------------
-	//  Now figure out the split-vertices and add two diagonal edges per split
+	//  Sort vertices by X,Y
 	//----------------------------------------
 
 	// First we need to sort the verts by X for determining diagonal ends
 	var sortedVerts = new List.<Vector2IdPair>();
 
+	// Store them in this datastructure so we can do this sorting
 	for( var i = 0; i < poly.GetNumVertices(); i++ ) {
 		var pair = new Vector2IdPair();
 		pair.v = poly.pts[i];
@@ -463,21 +679,22 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 
 			// add the edges, one going one way and one the other
 			// it will be shared by two adjacent monotone pieces
-			edges.Add( currVid );
-			edges.Add( diagVid );
-			edges.Add( diagVid );
-			edges.Add( currVid );
+			edge2verts.Add( currVid );
+			edge2verts.Add( diagVid );
+			edge2verts.Add( diagVid );
+			edge2verts.Add( currVid );
 		}
 	}
 
 	//----------------------------------------
 	//  Traverse the graph to extract and triangulate monotone pieces
+	// 	TODO TEMP - it may be possible to extract the pieces as we're doing the decomposition, so we don't have to do this somewhat expensive monotone-piece extraction part
 	//----------------------------------------
 
 	// we'll store the tri specs in this list
 	var tris = new List.<TriIndices>();
 
-	var NE = edges.Count/2;
+	var NE = edge2verts.Count/2;
 	var edgeVisited = new boolean[ NE ];
 	for( var eid = 0; eid < NV; eid++ )
 		edgeVisited[ eid ] = false;
@@ -502,8 +719,8 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 		// follow the edge loop from firstEid until we hit the firstEid again
 		while( true ) {
 			edgeVisited[currEid] = true;
-			var currStart = edges[ 2*currEid ];
-			var currEnd = edges[ 2*currEid+1 ];
+			var currStart = edge2verts[ 2*currEid ];
+			var currEnd = edge2verts[ 2*currEid+1 ];
 
 			// find the outgoing edge from the current edge's end with the LARGEST angle
 			var bestEid = -1;
@@ -511,8 +728,8 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 			var backToFirst = false;
 			// TODO - optimize this with a data struct so we're not doing an N^2 search for the next edge
 			for( var otherEid = 0; otherEid < NE; otherEid++ ) {
-				var otherStart = edges[ 2*otherEid ];
-				var otherEnd = edges[ 2*otherEid+1 ];
+				var otherStart = edge2verts[ 2*otherEid ];
+				var otherEnd = edge2verts[ 2*otherEid+1 ];
 
 				if( otherStart != currEnd )
 					continue;
@@ -547,11 +764,25 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 			pieceEdges.Add( bestEid );
 			currEid = bestEid;
 		}
+		
+		//----------------------------------------
+		//  Draw it
+		//	TEMP TEMP DEBUG
+		//----------------------------------------
+		/*
+		var c = Color.red;
+		for( var ie = 0; ie < pieceEdges.Count; ie++ ) {
+			eid = pieceEdges[ie];
+			var s = edge2verts[ 2*eid + 0 ];
+			var e = edge2verts[ 2*eid + 1 ];
+			Debug.DrawLine( poly.pts[s], poly.pts[e], c, 0.1 );
+		}
+		*/
 
 		//----------------------------------------
 		//  Triangulate this piece
 		//----------------------------------------
-		TriangulateMonotonePolygon( sortedVerts, edges, pieceEdges, tris );
+		TriangulateMonotonePolygon( sortedVerts, edge2verts, pieceEdges, tris );
 	}
 
 	//----------------------------------------
@@ -564,8 +795,11 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 		meshVerts[i] = poly.pts[i];
 	}
 	for( i = 0; i < tris.Count; i++ ) {
-		for( var j = 0; j < 3; j++ )
-			triangles[ 3*i+j ] = tris[i].verts[j];
+		// remember, our tri verts are CCW, but unity expects them in CW
+		// thus, the 2/1 flip
+		triangles[ 3*i + 0 ] = tris[i].verts[0];
+		triangles[ 3*i + 1 ] = tris[i].verts[2];
+		triangles[ 3*i + 2 ] = tris[i].verts[1];
 	}
 
 	mesh.vertices = meshVerts;
@@ -580,14 +814,14 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 //----------------------------------------
 static function TriangulateMonotonePolygon(
 		sortedVerts:List.<Vector2IdPair>,
-		edges:List.<int>,
+		edge2verts:List.<int>,
 		pieceEdges:List.<int>,	// the edges that are part of the monotone piece
 		tris:List.<TriIndices> )
 {
 	var i = 0;
 	// create nbor query datastructure
 	var nbors = new PolyVertexNbors();
-	nbors.Reset( sortedVerts.Count, edges, pieceEdges );
+	nbors.Reset( sortedVerts.Count, edge2verts, pieceEdges );
 
 	var sidStack = new Stack.<int>();
 

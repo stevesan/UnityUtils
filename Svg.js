@@ -1,6 +1,6 @@
 #pragma strict
 
-import System.IO;
+import System.Collections.Generic;
 
 //----------------------------------------
 //  TODO - add proper Mesh2D stuff, ie. edge list
@@ -12,13 +12,12 @@ class SvgPathBuilder
 	private var prevMoveOrClose = false;
 	private var firstPoint = 0;
 	private var nCubicDivs = 20;
-	private var ptsBuiltin : Vector2[];
 	
-	private var pts : Array = new Array();
+	private var pts = new List.<Vector2>();
 
 	function SetCubicDivs( n:int ) { nCubicDivs = n; }
 
-	function GetPoints() : Vector2[] { return ptsBuiltin; }
+	function GetPoints() : List.<Vector2> { return pts; }
 
 	function Move( p:Vector2, isRel:boolean )
 	{
@@ -35,7 +34,7 @@ class SvgPathBuilder
 			c2 += prevPt;
 			x2 += prevPt;
 		}
-		if( prevMoveOrClose ) pts.Push( prevPt );
+		if( prevMoveOrClose ) pts.Add( prevPt );
 
 		var x1 = prevPt;
 
@@ -51,7 +50,7 @@ class SvgPathBuilder
 			var e = b*(1-t) + c*t;
 			var p = d*(1-t) + e*t;
 
-			pts.Push( p );
+			pts.Add( p );
 		} 
 
 		prevPt = x2;
@@ -73,15 +72,15 @@ class SvgPathBuilder
 	function Line( p:Vector2, isRel:boolean )
 	{
 		if( isRel ) p += prevPt;
-		if( prevMoveOrClose ) pts.Push( prevPt );
-		pts.Push( p );
+		if( prevMoveOrClose ) pts.Add( prevPt );
+		pts.Add( p );
 		prevMoveOrClose = false;
 	}
 
 	function Close()
 	{
-		pts.Push( pts[firstPoint] );
-		firstPoint = pts.length;
+		pts.Add( pts[firstPoint] );
+		firstPoint = pts.Count;
 		prevMoveOrClose = true;
 	}
 
@@ -92,8 +91,6 @@ class SvgPathBuilder
 
 	function EndBuilding()
 	{
-		ptsBuiltin = (pts.ToBuiltin( Vector2 ) as Vector2[]);
-		pts.Clear();
 	}
 
 	function BuildExample()
@@ -113,19 +110,19 @@ class SvgPathBuilder
 	function ToLineRenderer( lr : LineRenderer )
 	{
 		lr.useWorldSpace = false;
-		lr.SetVertexCount( ptsBuiltin.length );
-		for( var i = 0; i < ptsBuiltin.length; i++ )
-			lr.SetPosition( i, Utils.ToVector3(ptsBuiltin[i]) );
+		lr.SetVertexCount( pts.Count );
+		for( var i = 0; i < pts.Count; i++ )
+			lr.SetPosition( i, Utils.ToVector3(pts[i]) );
 	}
 
 	function Recenter()
 	{
 		var bounds = new Bounds2D();
-		bounds.SetTo( ptsBuiltin );
+		bounds.SetTo( pts );
 		var c = bounds.GetCenter();
 
-		for( var i = 0; i < ptsBuiltin.length; i++ )
-			ptsBuiltin[i] -= c;
+		for( var i = 0; i < pts.Count; i++ )
+			pts[i] -= c;
 	}
 
 	//----------------------------------------

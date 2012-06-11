@@ -1,5 +1,7 @@
 #pragma strict
 
+import System.Collections.Generic;
+
 static function Nearest( pts : Array, p:Vector2 ) : int
 {
 	var minDist = Mathf.Infinity;
@@ -84,6 +86,18 @@ class Bounds2D
 	var mins : Vector2;
 	var maxs : Vector2;
 
+	function SetTo( pts : List.<Vector2> )
+	{
+		mins = Vector2( Mathf.Infinity, Mathf.Infinity );
+		maxs = Vector2( -Mathf.Infinity, -Mathf.Infinity );
+
+		for( var i = 0; i < pts.Count; i++ )
+		{
+			mins = Vector2.Min( mins, pts[i] );
+			maxs = Vector2.Max( maxs, pts[i] );
+		}
+	}
+
 	function SetTo( pts : Vector2[] )
 	{
 		mins = Vector2( Mathf.Infinity, Mathf.Infinity );
@@ -139,6 +153,16 @@ static function SlopeIntercept( s:Vector2, e:Vector2 ) : Vector2
 	var m = dy/dx;
 	var b = s.y - m*s.x;
 	return Vector2( m, b );
+}
+
+//----------------------------------------
+//  Returns the Y coordinate of when line (s,e) intersects the X=x vertical line
+//----------------------------------------
+static function EvalLineAtX( s:Vector2, e:Vector2, x:float ) : float
+{
+	var r = e-s;
+	var t = (x - s.x) / r.x;
+	return s.y + t*r.y;
 }
 
 //----------------------------------------
