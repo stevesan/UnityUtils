@@ -391,7 +391,7 @@ class Vector2IdPair {
 	var v : Vector3;
 	var id : int;
 
-	static function CompareByX( a:Vector2IdPair, b:Vector2IdPair ) {
+	static function CompareByX( a:Vector2IdPair, b:Vector2IdPair ) : int {
 		return ProGeo.CompareByXThenY( a.v, b.v );
 	}
 }
@@ -418,11 +418,11 @@ class PlaneSweep
 	//  Internal state
 	//----------------------------------------
 
-	class EdgeInfo {
+	class ActiveEdgeInfo {
 		var helperVertId:int;
-		var helperIsMerge:boolean;
+		var helperIsMergeVert:boolean;
 	}
-	private var edge2info = new List.<EdgeInfo>();
+	private var edge2info = new List.<ActiveEdgeInfo>();
 
 	private var vert2prevEdge = new List.<int>();
 	private var vert2nextEdge = new List.<int>();
@@ -447,9 +447,15 @@ class PlaneSweep
 		//----------------------------------------
 		//  Compute vert2 edge tables
 		//----------------------------------------
-		var NE = edge2verts.Count;
-		vert2prevEdge = new List.<int>(NE);
-		vert2nextEdge = new List.<int>(NE);
+		var NE = edge2verts.Count/2;
+		var NV = poly.pts.length;
+		vert2prevEdge = new List.<int>(NV);
+		vert2nextEdge = new List.<int>(NV);
+		for( var i = 0; i < NV; i++ ) {
+			vert2prevEdge.Add(0);
+			vert2nextEdge.Add(0);
+		}
+
 		for( var eid = 0; eid < NE; eid++ ) {
 			vert2nextEdge[ edge2verts[ 2*eid + 0 ] ] = eid;
 			vert2prevEdge[ edge2verts[ 2*eid + 1 ] ] = eid;
@@ -458,9 +464,9 @@ class PlaneSweep
 		//----------------------------------------
 		//  Init swept edges table
 		//----------------------------------------
-		edge2info = new List.<EdgeInfo>(NE);
+		edge2info = new List.<ActiveEdgeInfo>(NE);
 		for( eid = 0; eid < NE; eid++ ) {
-			edge2info[eid] = null;
+			edge2info.Add(null);
 		}
 	}
 
@@ -473,7 +479,7 @@ class PlaneSweep
 		var bestEid = -1;
 		var bestDist = 0.0;
 
-		for( var eid = 0; eid < edge2verts.Count; eid++ ) {
+		for( var eid = 0; eid < edge2info.Count; eid++ ) {
 			if( edge2info[eid] != null ) {
 				// edge is still in sweep
 				var y = Math2D.EvalLineAtX( GetEdgeStart(eid), GetEdgeEnd(eid), p.x );
@@ -488,6 +494,24 @@ class PlaneSweep
 		}
 
 		return bestEid;
+	}
+
+	//----------------------------------------
+	//  
+	//----------------------------------------
+	function DebugDrawActiveEdges( c:Color, diagColor:Color )
+	{
+		// draw active edges
+		for( var eid = 0; eid < edge2info.Count; eid++ ) {
+			if( edge2info[eid] != null ) {
+				Debug.DrawLine( GetEdgeStart(eid), GetEdgeEnd(eid), c );
+			}
+		}
+
+		// draw added diagonals
+		for( eid = edge2info.Count; eid < edge2verts.Count/2; eid++ ) {
+				Debug.DrawLine( GetEdgeStart(eid), GetEdgeEnd(eid), diagColor );
+		}
 	}
 
 	//----------------------------------------
@@ -529,20 +553,24 @@ class PlaneSweep
 		}
 	}
 
+	private function AddDiagonalIfMergeHelper( eid:int, other:int )
+	{
+		if( edge2info[ eid ] != null && edge2info[ eid ].helperIsMergeVert ) 
+			AddDoubledDiagonal( edge2info[eid].helperVertId, other );
+	}
+
 	private function ActivateEdge( eid:int, helper:int, isMerge:boolean )
 	{
-		var info = new EdgeInfo();
-		info.eid = eid;
+		Utils.Assert( edge2info[eid] == null );
+		var info = new ActiveEdgeInfo();
 		info.helperVertId = helper;
 		info.helperIsMergeVert = isMerge;
 		edge2info[ eid ] = info;
 	}
 
-	private function DeactivateEdge( eid:int ) : int
+	private function DeactivateEdge( eid:int ) 
 	{
-		var info = edge2info[ eid ];
 		edge2info[ eid ] = null;
-		return info.helperVertId;
 	}
 
 	private function AddDoubledDiagonal( v1:int, v2:int ) 
@@ -555,9 +583,10 @@ class PlaneSweep
 
 	//----------------------------------------
 	//  Performs one step of the plane sweep algo.
-	//	Returns false if this was the last step
+	//	Returns true if more steps are needed
 	//----------------------------------------
-	function Step() : boolean
+	function Step() : boolean { return Step(false); }
+	function Step( verbose:boolean ) : boolean
 	{
 		// safety
 		if( currSid >= sortedVerts.Count )
@@ -571,48 +600,85 @@ class PlaneSweep
 		var aboveEdge = -1;
 
 		if( currType == VertType.START ) {
+			if( verbose ) Debug.Log('START event');
 			ActivateEdge( e1, currVid, false );
+			//OPT: ActivateEdge( e2, currVid, false );
 		}
 		else if( currType == VertType.END ) {
-			if( edge2info[e1].helperIsMergeVert )
-				AddDoubledDiagonal( currVid, edge2info[e1].helperVertId );
-			if( edge2info[e2].helperIsMergeVert )
-				AddDoubledDiagonal( currVid, edge2info[e2].helperVertId );
+			if( verbose ) Debug.Log('END event');
+			AddDiagonalIfMergeHelper( e1, currVid );
+			AddDiagonalIfMergeHelper( e2, currVid );
 			DeactivateEdge( e1 );
 			DeactivateEdge( e2 );
 		}
 		else if( currType == VertType.SPLIT ) {
+			if( verbose ) Debug.Log('SPLIT event');
+
+			// add diag to above edge
 			aboveEdge = FindEdgeAbove( poly.pts[currVid] );
+			if( verbose ) Debug.Log('above edge = '+aboveEdge);
+			if( verbose ) Debug.Log('above edge helper = '+edge2info[aboveEdge].helperVertId);
+			Utils.Assert( aboveEdge != -1 );
 			AddDoubledDiagonal( currVid, edge2info[aboveEdge].helperVertId );
 			edge2info[aboveEdge].helperVertId = currVid;
+			edge2info[aboveEdge].helperIsMergeVert = false;
+
 			ActivateEdge( e1, currVid, false );
+			//OPT: ActivateEdge( e2, currVid, false );
 		}
 		else if( currType == VertType.MERGE ) {
+			if( verbose ) Debug.Log('MERGE event');
+			AddDiagonalIfMergeHelper( e1, currVid );
+			AddDiagonalIfMergeHelper( e2, currVid );
 			DeactivateEdge( e1 );
 			DeactivateEdge( e2 );
+			
+			// change helper
 			aboveEdge = FindEdgeAbove( poly.pts[currVid] );
+			AddDiagonalIfMergeHelper( aboveEdge, currVid );
 			edge2info[aboveEdge].helperVertId = currVid;
 			edge2info[aboveEdge].helperIsMergeVert = true;
 		}
 		else if( currType == VertType.REGULAR_TOP ) {
-			if( edge2infos[e2].helperIsMergeVert )
-				AddDoubledDiagonal( currVid, edge2infos[e2].helperVertId );
+			if( verbose ) Debug.Log('REG TOP event');
+			AddDiagonalIfMergeHelper( e2, currVid );
 			DeactivateEdge( e2 );
 			ActivateEdge( e1, currVid, false );
 		}
 		else if( currType == VertType.REGULAR_BOTTOM ) {
-			if( edge2infos[e1].helperIsMergeVert )
-				AddDoubledDiagonal( currVid, edge2infos[e1].helperVertId );
+			if( verbose ) Debug.Log('REG BoT event');
+			AddDiagonalIfMergeHelper( e1, currVid );
 			DeactivateEdge( e1 );
-			ActivateEdge( e2, currVid, false );
+
+			// Steve: This is my "bug fix" that both algo descriptions seem to ignore, but it's necessary to keep the helper invariant
+			aboveEdge = FindEdgeAbove( poly.pts[currVid] );
+			AddDiagonalIfMergeHelper( aboveEdge, currVid );
+			edge2info[aboveEdge].helperVertId = currVid;
+			edge2info[aboveEdge].helperIsMergeVert = false;
+			if( verbose ) Debug.Log('edge '+aboveEdge+' new helper = '+currVid);
+
+			// It's important to add this edge after we do the above helper-change, since we don't want this edge influenceing the above-search
+			//OPT: ActivateEdge( e2, currVid, false );
 		}
 
 		// step
 		currSid++;
-		return currSid < sortedVerts.Count;
+		var moreSteps = currSid < sortedVerts.Count;
+
+/*
+		if( !moreSteps ) {
+			// we're done. go through all edges, if they have merge-helpers, connect them up
+			for( var eid = 0; eid < edge2info.Count; eid++ ) {
+				if( edge2info[eid] != null && edge2info[eid].helperIsMergeVert ) {
+					AddDoubledDiagonal( edge2info[eid].helperVertId, (eid) );
+				}
+			}
+		}
+		*/
+
+		return moreSteps;
 	}
 }
-
 
 //----------------------------------------
 //  
@@ -651,40 +717,12 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 
 	sortedVerts.Sort( Vector2IdPair.CompareByX );
 
-	// identify split verts and add diagonal edges
-	// We add two opposing edges, one for each of the two monotone piece
-	// We use the X-sorting to determine diagonal edges
-	for( var currSid = 0; currSid < NV; currSid++ ) {
-		var currVid = sortedVerts[ currSid ].id;
-		var currPos = poly.pts[ currVid ];
-		var prevPos = poly.pts[ nbors.GetPrev(currVid) ];
-		var nextPos = poly.pts[ nbors.GetNext(currVid) ];
-
-		// Note our use of CompareByX here, which actually compares by X and then also Y
-		// TODO - not sure how vertically co-linear points would be handled here..hm
-		if( CompareByXThenY( prevPos, currPos ) == CompareByXThenY( nextPos, currPos )
-				&& Math2D.IsLeftOfLine( currPos, prevPos, nextPos ) ) {
-			// this is a split/merge vertex
-			// create diagonal edges to a nearby vertex
-			var diagVid = -1;
-			if( (prevPos.x-currPos.x) > 0.0 ) {
-				Utils.Assert( currSid != 0 );
-				diagVid = sortedVerts[currSid-1].id;
-			}
-			else {
-				// TODO think about the case where prevPos.x == currPos.x...
-				Utils.Assert( currSid != NV-1 );
-				diagVid = sortedVerts[ currSid+1 ].id;
-			}
-
-			// add the edges, one going one way and one the other
-			// it will be shared by two adjacent monotone pieces
-			edge2verts.Add( currVid );
-			edge2verts.Add( diagVid );
-			edge2verts.Add( diagVid );
-			edge2verts.Add( currVid );
-		}
-	}
+	//----------------------------------------
+	//  Let the plane sweep algorithm do its thing
+	//----------------------------------------
+	var ps = new PlaneSweep();
+	ps.Reset( poly, edge2verts, sortedVerts, nbors );
+	while( ps.Step() );
 
 	//----------------------------------------
 	//  Traverse the graph to extract and triangulate monotone pieces
@@ -769,15 +807,13 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 		//  Draw it
 		//	TEMP TEMP DEBUG
 		//----------------------------------------
-		/*
 		var c = Color.red;
 		for( var ie = 0; ie < pieceEdges.Count; ie++ ) {
 			eid = pieceEdges[ie];
 			var s = edge2verts[ 2*eid + 0 ];
 			var e = edge2verts[ 2*eid + 1 ];
-			Debug.DrawLine( poly.pts[s], poly.pts[e], c, 0.1 );
+			Debug.DrawLine( poly.pts[s], poly.pts[e], c, 0 );
 		}
-		*/
 
 		//----------------------------------------
 		//  Triangulate this piece
@@ -787,6 +823,7 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 
 	//----------------------------------------
 	//  Finally, transfer to the mesh
+	//	TODO - store these so we're not allocating everytime..
 	//----------------------------------------
 	var meshVerts = new Vector3[ poly.GetNumVertices() ];
 	var triangles = new int[ 3*tris.Count ];
@@ -805,7 +842,11 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 	mesh.vertices = meshVerts;
 	mesh.triangles = triangles;
 	
-	Debug.Log('triangulated polygon to '+tris.Count+' triangles');
+	var uv = new Vector2[ poly.GetNumVertices() ];
+	for( i = 0; i < uv.length; i++ ) uv[i] = meshVerts[i];
+	mesh.uv = uv;
+	
+	//Debug.Log('triangulated polygon to '+tris.Count+' triangles');
 }
 
 //----------------------------------------
