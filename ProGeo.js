@@ -665,17 +665,6 @@ class PlaneSweep
 		currSid++;
 		var moreSteps = currSid < sortedVerts.Count;
 
-/*
-		if( !moreSteps ) {
-			// we're done. go through all edges, if they have merge-helpers, connect them up
-			for( var eid = 0; eid < edge2info.Count; eid++ ) {
-				if( edge2info[eid] != null && edge2info[eid].helperIsMergeVert ) {
-					AddDoubledDiagonal( edge2info[eid].helperVertId, (eid) );
-				}
-			}
-		}
-		*/
-
 		return moreSteps;
 	}
 }
@@ -845,6 +834,8 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 	var uv = new Vector2[ poly.GetNumVertices() ];
 	for( i = 0; i < uv.length; i++ ) uv[i] = meshVerts[i];
 	mesh.uv = uv;
+
+	mesh.RecalculateBounds();
 	
 	//Debug.Log('triangulated polygon to '+tris.Count+' triangles');
 }
