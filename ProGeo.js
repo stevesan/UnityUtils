@@ -796,12 +796,14 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 		//  Draw it
 		//	TEMP TEMP DEBUG
 		//----------------------------------------
-		var c = Color.red;
-		for( var ie = 0; ie < pieceEdges.Count; ie++ ) {
-			eid = pieceEdges[ie];
-			var s = edge2verts[ 2*eid + 0 ];
-			var e = edge2verts[ 2*eid + 1 ];
-			Debug.DrawLine( poly.pts[s], poly.pts[e], c, 0 );
+		if( false ) {
+			var c = Color.red;
+			for( var ie = 0; ie < pieceEdges.Count; ie++ ) {
+				eid = pieceEdges[ie];
+				var s = edge2verts[ 2*eid + 0 ];
+				var e = edge2verts[ 2*eid + 1 ];
+				Debug.DrawLine( poly.pts[s], poly.pts[e], c, 0 );
+			}
 		}
 
 		//----------------------------------------
@@ -1018,7 +1020,6 @@ static function BuildBeltMesh(
 	}
 
 	// finalize
-	// TODO - UVs
 	mesh.vertices = vertices;
 	mesh.triangles = triangles;
 	mesh.RecalculateNormals();
