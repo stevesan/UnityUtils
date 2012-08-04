@@ -452,13 +452,19 @@ class PlaneSweep
 		vert2prevEdge = new List.<int>(NV);
 		vert2nextEdge = new List.<int>(NV);
 		for( var i = 0; i < NV; i++ ) {
-			vert2prevEdge.Add(0);
-			vert2nextEdge.Add(0);
+			vert2prevEdge.Add(-1);
+			vert2nextEdge.Add(-1);
 		}
 
 		for( var eid = 0; eid < NE; eid++ ) {
 			vert2nextEdge[ edge2verts[ 2*eid + 0 ] ] = eid;
 			vert2prevEdge[ edge2verts[ 2*eid + 1 ] ] = eid;
+		}
+
+		// check
+		for( i = 0; i < NV; i++ ) {
+			Utils.Assert( vert2nextEdge[i] != -1, 'vert '+i+' does not have a next!');
+			Utils.Assert( vert2prevEdge[i] != -1, 'vert '+i+' does not have a prev!');
 		}
 
 		//----------------------------------------
@@ -555,6 +561,8 @@ class PlaneSweep
 
 	private function AddDiagonalIfMergeHelper( eid:int, other:int )
 	{
+		Utils.Assert( eid < edge2info.Count, "edgeId = " +eid+ " edge2info.Count = "+edge2info.Count );
+		Utils.Assert( eid >= 0, "edgeId = "+eid );
 		if( edge2info[ eid ] != null && edge2info[ eid ].helperIsMergeVert ) 
 			AddDoubledDiagonal( edge2info[eid].helperVertId, other );
 	}
@@ -830,6 +838,8 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 		triangles[ 3*i + 2 ] = tris[i].verts[1];
 	}
 
+	// as of Unity 3.5.4, it actually checks for integrity, so we need to clear the mesh's tris before setting other stuff
+	mesh.triangles = null;
 	mesh.vertices = meshVerts;
 	mesh.triangles = triangles;
 	
@@ -1020,7 +1030,10 @@ static function BuildBeltMesh(
 	}
 
 	// finalize
+	// as of Unity 3.5.4, it actually checks for integrity, so we need to clear the mesh's tris before setting other stuff
+	mesh.triangles = null;
 	mesh.vertices = vertices;
-	mesh.triangles = triangles;
 	mesh.RecalculateNormals();
+	mesh.uv = new Vector2[ 2*npts ];
+	mesh.triangles = triangles;
 }

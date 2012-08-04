@@ -17,7 +17,6 @@ private var timeleft : float; // Left time for current interval
 
 function Start()
 {
-#if UNITY_EDITOR
     if( !guiText )
     {
         print ("FramesPerSecond needs a GUIText component!");
@@ -25,10 +24,6 @@ function Start()
         return;
     }
     timeleft = updateInterval;  
-#else
-	Debug.Log('not showing FPS - not in editor');
-	Destroy( GetComponent(FramesPerSecond) );
-#endif
 }
 
 function Update()
@@ -41,7 +36,7 @@ function Update()
     if( timeleft <= 0.0 )
     {
         // display two fractional digits (f2 format)
-        guiText.text = "" + (accum/frames).ToString("f2");
+        guiText.text = "FPS: " + (accum/frames).ToString("f2");
         timeleft = updateInterval;
         accum = 0.0;
         frames = 0;

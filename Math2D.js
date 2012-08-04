@@ -128,16 +128,18 @@ static function Intersect2DLines( s0:Vector2, e0:Vector2, s1:Vector2, e1:Vector2
 	var m0 = si0.x; var b0 = si0.y;
 	var m1 = si1.x; var b1 = si1.y;
 
-	if( m0 == Mathf.Infinity )
-	{
+	Utils.Assert( (m0 != Mathf.Infinity) || (m1 != Mathf.Infinity),
+		'Both lines are vertical! They never intersect!');
+	Utils.Assert( (m0 != 0) || (m1 != 0),
+		'Both lines are horizontal! They never intersect!');
+
+	if( m0 == Mathf.Infinity ) {
 		return Vector2( s0.x, m1*s0.x+b1 );
 	}
-	else if( m1 == Mathf.Infinity )
-	{
+	else if( m1 == Mathf.Infinity ) {
 		return Vector2( s1.x, m0*s1.x+b0 );
 	}
-	else
-	{
+	else {
 		var x = (b1-b0) / (m0-m1);
 		var y = m0*x + b0;
 		return Vector2(x,y);
@@ -148,7 +150,7 @@ static function SlopeIntercept( s:Vector2, e:Vector2 ) : Vector2
 {
 	var dx = e.x - s.x;
 	var dy = e.y - s.y;
-	if( dx == 0.0 )
+	if( Mathf.Abs(dx) < 1e-6 )
 		return Vector2( Mathf.Infinity, Mathf.Infinity );
 	var m = dy/dx;
 	var b = s.y - m*s.x;

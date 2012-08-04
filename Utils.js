@@ -5,7 +5,13 @@ import System.IO;
 static function Assert( condition : boolean )
 {
 	if( !condition )
-		Debug.LogError("assert failed");
+		Debug.LogError("Assert failed");
+}
+
+static function Assert( condition : boolean, msg:String )
+{
+	if( !condition )
+		Debug.LogError("Assert failed: "+msg);
 }
 
 static function DoAnalytics() : boolean
