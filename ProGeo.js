@@ -205,8 +205,10 @@ class Polygon2D
 
 	function ScalePoints( s:float )
 	{
-		for( var i = 0; i < pts.length; i++ )
-			pts[i] *= s;
+		if( pts != null ) {
+			for( var i = 0; i < pts.length; i++ )
+				pts[i] *= s;
+		}
 	}
 
 	function Reflect( l0:Vector2, l1:Vector2, keepRight:boolean )
@@ -326,6 +328,16 @@ class Polygon2D
 			edgeA[ oldNumEdges + i ] += oldNumPts;
 			edgeB[ oldNumEdges + i ] += oldNumPts;
 		}
+	}
+
+	function ContainedBy( r:Rect ) : boolean
+	{
+		for( var i = 0; i < pts.length; i++ ) {
+			if( !r.Contains( pts[i] ) )
+				return false;
+		}
+
+		return true;
 	}
 }
 
@@ -982,6 +994,11 @@ static function TriangulateMonotonePolygon(
 
 }
 
+static function BuildBeltMesh( poly:Polygon2D, zMin, zMax, normalPointingRight, mesh )
+{
+	BuildBeltMesh( poly.pts, poly.edgeA, poly.edgeB, zMin, zMax, normalPointingRight, mesh );
+}
+
 static function BuildBeltMesh(
 		pts:Vector2[],
 		edgeA:int[], edgeB:int[],
@@ -989,6 +1006,11 @@ static function BuildBeltMesh(
 		normalPointingRight:boolean,
 		mesh:Mesh )
 {
+	if( pts == null ) {
+		mesh.Clear();
+		return;
+	}
+
 	var npts = pts.length;
 
 	var vertices = new Vector3[ 2*npts ];
