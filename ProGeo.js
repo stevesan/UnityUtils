@@ -7,31 +7,86 @@ import System.Collections.Generic;
 //----------------------------------------
 
 //----------------------------------------
+//  This only exists because Unity's Mesh class has a lot of overhead
+//	when reading its read-only buffers. So keep a copy in this class, modify it,
+//	then copy it to the Mesh when you're done.
+//----------------------------------------
+class MeshBuffer
+{
+	var vertices:Vector3[] = null;
+	var uv:Vector2[] = null;
+	var normals:Vector3[] = null;
+	var triangles:int[];
+
+	function Allocate( numVerts:int, numTris:int )
+	{
+		vertices = new Vector3[ numVerts ];
+		uv = new Vector2[ numVerts ];
+		normals = new Vector3[ numVerts ];
+		triangles = new int[ 3*numTris ];
+	}
+
+	function CopyToMesh( to:Mesh )
+	{
+		// as of Unity 3.5.4, it actually checks for integrity, so we need to clear the mesh's tris before setting other stuff
+		to.triangles = null;
+		to.vertices = vertices;
+		to.uv = uv;
+		to.normals = normals;
+		to.triangles = triangles;
+	}
+}
+
+//----------------------------------------
 //  Works in the XY plane, and basically uses XY position as UVs
 //	TODO - have two radii - left and right radius
 //----------------------------------------
-static function Stroke2D( pts:Vector2[], width:float, mesh:Mesh )
+static function Stroke2D(
+		ctrlPts:Vector2[],
+		ctrlPtTexVs:float[],	// texture coordinate (V's) 
+		firstCtrl:int, lastCtrl:int,	// use first/lastCtrl to select a sub-array of ctrlPts.
+		width:float, mesh:MeshBuffer,
+		firstVert:int, firstTri:int	// use firstVert/Tri to tell Stroke2D where to output in the mesh. firstTri should be the index/3
+		)
 {
-	var npts = pts.length;
+	if( lastCtrl <= firstCtrl )
+	{
+		Debug.LogError('need at least 2 points to build stroke geometry!');
+		return;
+	}
+
+	var nctrls = lastCtrl-firstCtrl+1;
 	var radius : float = width/2.0;
+	var ntris = 2*(nctrls-1);
 
-	var vertices = new Vector3[ 2 * npts ];
-	var uvs = new Vector2[ 2 * npts ];
+	// make sure buffers are large enough
+	if( (firstVert + 2*nctrls) > mesh.vertices.length )
+	{
+		Debug.LogError('not enough vertices allocated in mesh for '+nctrls+' control points!');
+		return;
+	}
 
-	var a = pts[0];
-	var b = pts[1];
+	if( 3*(firstTri + ntris) > mesh.triangles.length )
+	{
+		Debug.LogError('not enough triangle space allocated in mesh for '+nctrls+' control points!');
+		return;
+	}
+
+	var a = ctrlPts[firstCtrl];
+	var b = ctrlPts[firstCtrl+1];
 	var e0 = b-a;
 	var n = Math2D.PerpCCW( e0 ).normalized;
-	vertices[0] = a + n*radius;
-	vertices[1] = a - n*radius;
-	uvs[ 0 ] = Vector2( 0,0 );
-	uvs[ 1 ] = Vector2( 1,0 );
+	mesh.vertices[firstVert+0] = a + n*radius;
+	mesh.vertices[firstVert+1] = a - n*radius;
+	var v = ctrlPtTexVs[ firstCtrl ];
+	mesh.uv[ firstVert+0 ] = Vector2( 0, v );
+	mesh.uv[ firstVert+1 ] = Vector2( 1, v );
 
-	for( var i = 1; i < npts-1; i++ )
+	for( var i = firstCtrl+1; i < lastCtrl; i++ )
 	{
-		var p0 = pts[i-1];
-		var p1 = pts[i];
-		var p2 = pts[i+1];
+		var p0 = ctrlPts[i-1];
+		var p1 = ctrlPts[i];
+		var p2 = ctrlPts[i+1];
 		e0 = p1-p0;
 		var e1 = p2-p1;
 
@@ -48,53 +103,39 @@ static function Stroke2D( pts:Vector2[], width:float, mesh:Mesh )
 		var alpha = radius * Mathf.Tan( dtheta/2.0 );
 
 		n = Math2D.PerpCCW( e0 ).normalized;
-		vertices[ 2*i ] = p1+radius*n - alpha*e0n;
-		vertices[ 2*i+1 ] = p1-radius*n + alpha*e0n;
+		mesh.vertices[ firstVert+2*i+0 ] = p1+radius*n - alpha*e0n;
+		mesh.vertices[ firstVert+2*i+1 ] = p1-radius*n + alpha*e0n;
 
-		var v = (1.0*i) / (npts-1.0);
-		uvs[ 2*i ] = Vector2( 0, v );
-		uvs[ 2*i+1 ] = Vector2( 1, v );
+		v = ctrlPtTexVs[ i ];
+		mesh.uv[ firstVert+2*i+0 ] = Vector2( 0, v );
+		mesh.uv[ firstVert+2*i+1 ] = Vector2( 1, v );
 	}
 
 	// last one
-	a = pts[ npts-2 ];
-	b = pts[ npts-1 ];
+	a = ctrlPts[ lastCtrl-1 ];
+	b = ctrlPts[ lastCtrl ];
 	e0 = b-a;
 	n = Math2D.PerpCCW( e0 ).normalized;
-	vertices[ 2*npts-2 ] = b + n*radius;
-	vertices[ 2*npts-1 ] = b - n*radius;
-	uvs[ 2*npts-2 ] = Vector2( 0, 1 );
-	uvs[ 2*npts-1 ] = Vector2( 1, 1 );
+	mesh.vertices[ firstVert+2*nctrls-2 ] = b + n*radius;
+	mesh.vertices[ firstVert+2*nctrls-1 ] = b - n*radius;
+	v = ctrlPtTexVs[ lastCtrl ];
+	mesh.uv[ firstVert+2*nctrls-2 ] = Vector2( 0, v );
+	mesh.uv[ firstVert+2*nctrls-1 ] = Vector2( 1, v );
 
 	//----------------------------------------
 	//  Triangles
 	//----------------------------------------
-	var ntris = 2*(npts-1);
-	var triangles = new int[ ntris * 3 ];
-	for( i = 0; i < (npts-1); i++ )
+	for( i = 0; i < (nctrls-1); i++ )
 	{
-		triangles[ 6*i + 0 ] = 2 * i + 0;
-		triangles[ 6*i + 1 ] = 2 * i + 2;
-		triangles[ 6*i + 2 ] = 2 * i + 1;
+		mesh.triangles[ 3*firstTri + 6*i + 0 ] = 2 * i + 0;
+		mesh.triangles[ 3*firstTri + 6*i + 1 ] = 2 * i + 2;
+		mesh.triangles[ 3*firstTri + 6*i + 2 ] = 2 * i + 1;
 
-		triangles[ 6*i + 3 ] = 2 * i + 1;
-		triangles[ 6*i + 4 ] = 2 * i + 2;
-		triangles[ 6*i + 5 ] = 2 * i + 3;
+		mesh.triangles[ 3*firstTri + 6*i + 3 ] = 2 * i + 1;
+		mesh.triangles[ 3*firstTri + 6*i + 4 ] = 2 * i + 2;
+		mesh.triangles[ 3*firstTri + 6*i + 5 ] = 2 * i + 3;
 	}
 
-	//----------------------------------------
-	//  Assign
-	//----------------------------------------
-	mesh.vertices = vertices;
-	mesh.uv = uvs;
-	mesh.triangles = triangles;
-
-	// set all normals to -Z
-	var normals = new Vector3[ 2 * npts ];
-	for( i = 0; i < normals.length; i++ )
-		normals[i] = Vector3( 0, 0, -1 );
-
-	mesh.normals = normals;
 }
 
 //----------------------------------------
@@ -330,6 +371,10 @@ class Polygon2D
 		}
 	}
 
+	//----------------------------------------
+	//  This just does a per-point test, which is necessary and sufficient for
+	//	complete containment
+	//----------------------------------------
 	function ContainedBy( r:Rect ) : boolean
 	{
 		for( var i = 0; i < pts.length; i++ ) {
@@ -573,8 +618,10 @@ class PlaneSweep
 
 	private function AddDiagonalIfMergeHelper( eid:int, other:int )
 	{
-		Utils.Assert( eid < edge2info.Count, "edgeId = " +eid+ " edge2info.Count = "+edge2info.Count );
-		Utils.Assert( eid >= 0, "edgeId = "+eid );
+		if( !Utils.Assert( eid < edge2info.Count, "edgeId = " +eid+ " edge2info.Count = "+edge2info.Count ) )
+			return;
+		if( !Utils.Assert( eid >= 0, "edgeId = "+eid ) )
+			return;
 		if( edge2info[ eid ] != null && edge2info[ eid ].helperIsMergeVert ) 
 			AddDoubledDiagonal( edge2info[eid].helperVertId, other );
 	}

@@ -2,16 +2,18 @@
 
 import System.IO;
 
-static function Assert( condition : boolean )
+static function Assert( condition : boolean ) : boolean
 {
 	if( !condition )
 		Debug.LogError("Assert failed");
+	return condition;
 }
 
-static function Assert( condition : boolean, msg:String )
+static function Assert( condition : boolean, msg:String ) : boolean
 {
 	if( !condition )
 		Debug.LogError("Assert failed: "+msg);
+	return condition;
 }
 
 static function DoAnalytics() : boolean
@@ -134,6 +136,23 @@ static function IsBetween( x:float, a:float, b:float ) : boolean
 	return (x >= a) && (x < b);
 }
 
+static function Nearest( pts : Array, p:Vector2 ) : int
+{
+	var minDist = Mathf.Infinity;
+	var minId = -1;
+
+	for( var i = 0; i < pts.length; i++ )
+	{
+		var dist = Vector2.Distance( pts[i], p );
+		if( dist < minDist )
+		{
+			minDist = dist;
+			minId = i;
+		}
+	}
+
+	return minId;
+}
 
 //----------------------------------------
 //  Returns the SDF of the contact relative to the given box
