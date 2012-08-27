@@ -382,5 +382,14 @@ class Matrix
 }
 
 //----------------------------------------
+//  Using the simple algo from: http://www.protonfish.com/random.shtml
+//----------------------------------------
+static function PseudoNormalRandom( mean:float, stdev:float )
+{
+	var G = Random.Range(-1.0, 1.0) + Random.Range(-1.0, 1.0 ) + Random.Range( -1.0, 1.0 );
+	return G*stdev + mean;
+}
+
+//----------------------------------------
 //  IO stuff
 //----------------------------------------

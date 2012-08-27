@@ -114,6 +114,29 @@ class Bounds2D
 	{
 		return 0.5 * (mins+maxs);
 	}
+
+	function Contains( p:Vector2 ) : boolean {
+		return mins.x <= p.x && mins.y <= p.y
+		&& maxs.x >= p.x && maxs.y >= p.y;
+	}
+
+	// random pos inside these bounds
+	function RandomPosition() : Vector2 {
+		return Vector2(
+				Mathf.Lerp(mins.x, maxs.x, Random.value), 
+				Mathf.Lerp(mins.y, maxs.y, Random.value) );
+	}
+
+	function WrapPosition(p:Vector2) : Vector2 
+	{
+		if( p.x < mins.x ) p.x = maxs.x;
+		else if( p.x > maxs.x ) p.x = mins.x;
+
+		if( p.y < mins.y ) p.y = maxs.y;
+		else if( p.y > maxs.y ) p.y = mins.y;
+
+		return p;
+	}
 }
 
 
