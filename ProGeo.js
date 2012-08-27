@@ -45,6 +45,7 @@ static function Stroke2D(
 		ctrlPts:Vector2[],
 		ctrlPtTexVs:float[],	// texture coordinate (V's) 
 		firstCtrl:int, lastCtrl:int,	// use first/lastCtrl to select a sub-array of ctrlPts.
+		isLoop:boolean,	// whether or not it's a closed loop, ie. we should connect the last ctrl to the first one
 		width:float, mesh:MeshBuffer,
 		firstVert:int, firstTri:int	// use firstVert/Tri to tell Stroke2D where to output in the mesh. firstTri should be the index/3
 		)
@@ -56,7 +57,8 @@ static function Stroke2D(
 
 	var nctrls = lastCtrl-firstCtrl+1;
 	var radius : float = width/2.0;
-	var ntris = 2*(nctrls-1);
+	var nsegs = ( isLoop ? nctrls : nctrls-1 );
+	var ntris = 2*nsegs;
 
 	// make sure buffers are large enough
 	if( (firstVert + 2*nctrls) > mesh.vertices.length ) {
@@ -69,21 +71,25 @@ static function Stroke2D(
 		return;
 	}
 
-	var a = ctrlPts[firstCtrl];
-	var b = ctrlPts[firstCtrl+1];
-	var e0 = b-a;
-	var n = Math2D.PerpCCW( e0 ).normalized;
-	mesh.vertices[firstVert+0] = a + n*radius;
-	mesh.vertices[firstVert+1] = a - n*radius;
-	var v = ctrlPtTexVs[ firstCtrl ];
-	mesh.uv[ firstVert+0 ] = Vector2( 0, v );
-	mesh.uv[ firstVert+1 ] = Vector2( 1, v );
+	// first ctrl
+	if( !isLoop ) {
+		var a = ctrlPts[firstCtrl];
+		var b = ctrlPts[firstCtrl+1];
+		var e0 = b-a;
+		var n = Math2D.PerpCCW( e0 ).normalized;
+		mesh.vertices[firstVert+0] = a + n*radius;
+		mesh.vertices[firstVert+1] = a - n*radius;
+		var v = ctrlPtTexVs[ firstCtrl ];
+		mesh.uv[ firstVert+0 ] = Vector2( 0, v );
+		mesh.uv[ firstVert+1 ] = Vector2( 1, v );
+	}
 
-	for( var i = firstCtrl+1; i < lastCtrl; i++ )
+	for( var i = (isLoop ? firstCtrl : firstCtrl+1);
+			i < (isLoop ? lastCtrl+1 : lastCtrl); i++ )
 	{
-		var p0 = ctrlPts[i-1];
-		var p1 = ctrlPts[i];
-		var p2 = ctrlPts[i+1];
+		var p0 = ctrlPts[(nctrls+i-1) % nctrls];
+		var p1 = ctrlPts[i % nctrls];
+		var p2 = ctrlPts[(i+1) % nctrls];
 		e0 = p1-p0;
 		var e1 = p2-p1;
 
@@ -109,15 +115,17 @@ static function Stroke2D(
 	}
 
 	// last one
-	a = ctrlPts[ lastCtrl-1 ];
-	b = ctrlPts[ lastCtrl ];
-	e0 = b-a;
-	n = Math2D.PerpCCW( e0 ).normalized;
-	mesh.vertices[ firstVert+2*nctrls-2 ] = b + n*radius;
-	mesh.vertices[ firstVert+2*nctrls-1 ] = b - n*radius;
-	v = ctrlPtTexVs[ lastCtrl ];
-	mesh.uv[ firstVert+2*nctrls-2 ] = Vector2( 0, v );
-	mesh.uv[ firstVert+2*nctrls-1 ] = Vector2( 1, v );
+	if( !isLoop ) {
+		a = ctrlPts[ lastCtrl-1 ];
+		b = ctrlPts[ lastCtrl ];
+		e0 = b-a;
+		n = Math2D.PerpCCW( e0 ).normalized;
+		mesh.vertices[ firstVert+2*nctrls-2 ] = b + n*radius;
+		mesh.vertices[ firstVert+2*nctrls-1 ] = b - n*radius;
+		v = ctrlPtTexVs[ lastCtrl ];
+		mesh.uv[ firstVert+2*nctrls-2 ] = Vector2( 0, v );
+		mesh.uv[ firstVert+2*nctrls-1 ] = Vector2( 1, v );
+	}
 
 	//----------------------------------------
 	//  Triangles
@@ -131,6 +139,17 @@ static function Stroke2D(
 		mesh.triangles[ 3*firstTri + 6*i + 3 ] = firstVert + 2 * i + 1;
 		mesh.triangles[ 3*firstTri + 6*i + 4 ] = firstVert + 2 * i + 2;
 		mesh.triangles[ 3*firstTri + 6*i + 5 ] = firstVert + 2 * i + 3;
+	}
+
+	if( isLoop ) {
+		i = nctrls-1;
+		mesh.triangles[ 3*firstTri + 6*i + 0 ] = firstVert + 2 * i + 0;
+		mesh.triangles[ 3*firstTri + 6*i + 1 ] = firstVert + 2 * 0 + 0;
+		mesh.triangles[ 3*firstTri + 6*i + 2 ] = firstVert + 2 * i + 1;
+
+		mesh.triangles[ 3*firstTri + 6*i + 3 ] = firstVert + 2 * i + 1;
+		mesh.triangles[ 3*firstTri + 6*i + 4 ] = firstVert + 2 * 0 + 0;
+		mesh.triangles[ 3*firstTri + 6*i + 5 ] = firstVert + 2 * 0 + 1;
 	}
 
 }
