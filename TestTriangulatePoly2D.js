@@ -2,7 +2,7 @@
 
 function TestHole()
 {
-	var p = new Polygon2D();
+	var p = new Mesh2D();
 
 	// monotone test
 	p.pts = new Vector2[6];
@@ -23,7 +23,7 @@ function TestHole()
 
 function TestColinear()
 {
-	var p = new Polygon2D();
+	var p = new Mesh2D();
 
 	// monotone test
 	p.pts = new Vector2[8];
@@ -52,7 +52,7 @@ function TestColinear()
 
 function TestSimple()
 {
-	var p = new Polygon2D();
+	var p = new Mesh2D();
 
 	// monotone test
 	p.pts = new Vector2[5];
@@ -77,7 +77,7 @@ function TestSimple()
 
 function TestMonotone()
 {
-	var p = new Polygon2D();
+	var p = new Mesh2D();
 
 	// monotone test
 	p.pts = new Vector2[7];

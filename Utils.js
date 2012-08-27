@@ -12,8 +12,9 @@ static function Assert( condition : boolean ) : boolean
 static function Assert( condition : boolean, msg:String ) : boolean
 {
 	if( !condition )
-		Debug.LogError("Assert failed: "+msg);
+		Debug.LogError("Assert failed!!! Msg: "+msg);
 	return condition;
+
 }
 
 static function DoAnalytics() : boolean

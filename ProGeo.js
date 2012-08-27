@@ -49,8 +49,7 @@ static function Stroke2D(
 		firstVert:int, firstTri:int	// use firstVert/Tri to tell Stroke2D where to output in the mesh. firstTri should be the index/3
 		)
 {
-	if( lastCtrl <= firstCtrl )
-	{
+	if( lastCtrl <= firstCtrl ) {
 		Debug.LogError('need at least 2 points to build stroke geometry!');
 		return;
 	}
@@ -60,14 +59,12 @@ static function Stroke2D(
 	var ntris = 2*(nctrls-1);
 
 	// make sure buffers are large enough
-	if( (firstVert + 2*nctrls) > mesh.vertices.length )
-	{
+	if( (firstVert + 2*nctrls) > mesh.vertices.length ) {
 		Debug.LogError('not enough vertices allocated in mesh for '+nctrls+' control points!');
 		return;
 	}
 
-	if( 3*(firstTri + ntris) > mesh.triangles.length )
-	{
+	if( 3*(firstTri + ntris) > mesh.triangles.length ) {
 		Debug.LogError('not enough triangle space allocated in mesh for '+nctrls+' control points!');
 		return;
 	}
@@ -127,13 +124,13 @@ static function Stroke2D(
 	//----------------------------------------
 	for( i = 0; i < (nctrls-1); i++ )
 	{
-		mesh.triangles[ 3*firstTri + 6*i + 0 ] = 2 * i + 0;
-		mesh.triangles[ 3*firstTri + 6*i + 1 ] = 2 * i + 2;
-		mesh.triangles[ 3*firstTri + 6*i + 2 ] = 2 * i + 1;
+		mesh.triangles[ 3*firstTri + 6*i + 0 ] = firstVert + 2 * i + 0;
+		mesh.triangles[ 3*firstTri + 6*i + 1 ] = firstVert + 2 * i + 2;
+		mesh.triangles[ 3*firstTri + 6*i + 2 ] = firstVert + 2 * i + 1;
 
-		mesh.triangles[ 3*firstTri + 6*i + 3 ] = 2 * i + 1;
-		mesh.triangles[ 3*firstTri + 6*i + 4 ] = 2 * i + 2;
-		mesh.triangles[ 3*firstTri + 6*i + 5 ] = 2 * i + 3;
+		mesh.triangles[ 3*firstTri + 6*i + 3 ] = firstVert + 2 * i + 1;
+		mesh.triangles[ 3*firstTri + 6*i + 4 ] = firstVert + 2 * i + 2;
+		mesh.triangles[ 3*firstTri + 6*i + 5 ] = firstVert + 2 * i + 3;
 	}
 
 }
@@ -214,17 +211,17 @@ static function CompareByXThenY( a:Vector2, b:Vector2 )
 }
 
 //----------------------------------------
-//  TODO - Mes
+//	For Moments of Reflection, perhaps the best rep of the level geometry is a SET of polygons rather than a single polygon (which is wrong) or a 2D mesh (which is overly general)
 //----------------------------------------
-class Polygon2D
+class Mesh2D
 {
 	var pts : Vector2[] = null;
 	var edgeA : int[] = null;
 	var edgeB : int[] = null;
 
-	function Duplicate() : Polygon2D
+	function Duplicate() : Mesh2D
 	{
-		var dupe = new Polygon2D();
+		var dupe = new Mesh2D();
 		dupe.pts = Utils.Duplicate( pts );
 		dupe.edgeA = Utils.Duplicate( edgeA );
 		dupe.edgeB = Utils.Duplicate( edgeB );
@@ -252,6 +249,11 @@ class Polygon2D
 		}
 	}
 
+	//----------------------------------------
+	//  Reflects along the given line
+	//	keepRight - which side of the line should be kept
+	//	This adds new edges with proper orientation
+	//----------------------------------------
 	function Reflect( l0:Vector2, l1:Vector2, keepRight:boolean )
 	{
 		var npts = pts.length;
@@ -351,7 +353,7 @@ class Polygon2D
 		edgeB = newB.ToBuiltin(int);
 	}
 
-	function Append( other:Polygon2D )
+	function Append( other:Mesh2D )
 	{
 		if( pts == null ) pts = new Vector2[0];
 		if( edgeA == null ) edgeA = new int[0];
@@ -384,6 +386,34 @@ class Polygon2D
 
 		return true;
 	}
+
+	//----------------------------------------
+	//  Assumes that the current mesh is "manifold", ie. each vertex has exactly 2 incident edges
+	//----------------------------------------
+	function GetEdgeLoop( startEid:int ) : List.<int>
+	{
+		var loop = new List.<int>();
+		loop.Add( startEid );
+		var prevEid = startEid;
+
+		while( true ) {
+			// check if we're complete yet
+			if( edgeA[startEid] == edgeB[prevEid] )
+				// done - found the whole loop
+				break;
+
+			for( var nextEid = 0; nextEid < edgeA.length; nextEid++ ) {
+				if( edgeA[nextEid] == edgeB[prevEid] ) {
+					// got next one
+					loop.Add(nextEid);
+					prevEid = nextEid;
+					break;
+				}
+			}
+		}
+		
+		return loop;
+	}
 }
 
 //----------------------------------------
@@ -405,7 +435,7 @@ class PolyVertexNbors
 
 	function IsUsed( vid:int ) { return data[2*vid+0] != -1; }
 
-	function Reset( poly:Polygon2D, isClockwise:boolean )
+	function Reset( poly:Mesh2D, isClockwise:boolean )
 	{
 		data = new int[ 2*poly.GetNumVertices() ];
 		for( var i = 0; i < data.length; i++ )
@@ -466,7 +496,7 @@ class PlaneSweep
 	//----------------------------------------
 	//  Pointers to helper info
 	//----------------------------------------
-	private var poly:Polygon2D;
+	private var poly:Mesh2D;
 	private var edge2verts:List.<int>;
 	private var sortedVerts:List.<Vector2IdPair>;
 	private var nbors:PolyVertexNbors;
@@ -490,7 +520,7 @@ class PlaneSweep
 	//	monotone-polygon decompostion of the given polygon
 	//----------------------------------------
 	function Reset(
-			_poly:Polygon2D,
+			_poly:Mesh2D,
 			_edge2verts:List.<int>,	// this will be modified with new edges
 			_sortedVerts:List.<Vector2IdPair>,
 			_nbors:PolyVertexNbors )
@@ -739,7 +769,7 @@ class PlaneSweep
 //----------------------------------------
 //  
 //----------------------------------------
-static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise:boolean )
+static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:boolean )
 {
 	var NV = poly.GetNumVertices();
 
@@ -747,6 +777,7 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 	var nbors = new PolyVertexNbors();
 	nbors.Reset( poly, isClockwise );
 
+	// edge2verts is the list of edges that will be manipulated in order to form the triangulated mesh
 	// every 2-block is an oriented edge of vertex IDs
 	var edge2verts = new List.<int>();
 
@@ -809,6 +840,7 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 		pieceEdges.Add( firstEid );
 
 		var currEid = firstEid;
+		var pieceFound = false;
 
 		// follow the edge loop from firstEid until we hit the firstEid again
 		while( true ) {
@@ -854,7 +886,7 @@ static function TriangulateSimplePolygon( poly:Polygon2D, mesh:Mesh, isClockwise
 				break;
 
 			// got the next edge
-			Utils.Assert( bestEid != -1 );
+			Utils.Assert( bestEid != -1, "Could not find a closed edge-loop for starting edge currEid="+currEid );
 			pieceEdges.Add( bestEid );
 			currEid = bestEid;
 		}
@@ -1041,7 +1073,7 @@ static function TriangulateMonotonePolygon(
 
 }
 
-static function BuildBeltMesh( poly:Polygon2D, zMin, zMax, normalPointingRight, mesh )
+static function BuildBeltMesh( poly:Mesh2D, zMin, zMax, normalPointingRight, mesh )
 {
 	BuildBeltMesh( poly.pts, poly.edgeA, poly.edgeB, zMin, zMax, normalPointingRight, mesh );
 }
