@@ -393,3 +393,19 @@ static function PseudoNormalRandom( mean:float, stdev:float )
 //----------------------------------------
 //  IO stuff
 //----------------------------------------
+
+//----------------------------------------
+//  Goes up the ancestor tree until we find something with the component
+//----------------------------------------
+
+static function FindAncestorWithComponent( type:System.Type, start:GameObject ) : GameObject
+{
+	var obj = start;
+	while( obj != null ) {
+		var parent = obj.transform.parent.gameObject;
+		if( parent != null && parent.GetComponent(type) != null ) {
+			return parent;
+		}
+		obj = parent;
+	}
+}
