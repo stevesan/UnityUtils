@@ -2,6 +2,10 @@
 
 import System.IO;
 
+//----------------------------------------
+//  General utiliy functions
+//----------------------------------------
+
 static function Assert( condition : boolean ) : boolean
 {
 	if( !condition )
