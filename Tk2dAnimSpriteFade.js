@@ -1,10 +1,10 @@
 #pragma strict
 
 private var origColor:Color;
-private var anim : tk2dAnimatedSprite = null;
+private var anim : tk2dSprite = null;
 
 function Awake () {
-	anim = GetComponent( tk2dAnimatedSprite );
+	anim = GetComponent( tk2dSprite );
 	origColor = anim.color;
 }
 
