@@ -119,6 +119,19 @@ static function SetParticleMatOpacity( mat : Material, frac : float )
 	mat.SetColor("_TintColor", c);
 }
 
+static function SetRenderFlagRecursively( obj : GameObject, value:boolean ) : void
+{
+	var renderer = obj.GetComponent(Renderer);
+	if( renderer != null )
+		renderer.enabled = value;
+	for( var child:Transform in obj.transform ) {
+		SetRenderFlagRecursively( child.gameObject, value );
+	}
+}
+
+static function HideAll( obj : GameObject ) { SetRenderFlagRecursively( obj, false ); }
+static function ShowAll( obj : GameObject ) { SetRenderFlagRecursively( obj, true ); }
+
 static function DestroyObjs( objs : Array )
 {
 	for( var obj:GameObject in objs )
