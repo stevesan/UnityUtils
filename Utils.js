@@ -106,6 +106,16 @@ static function ToVector3( v:Vector2, z:float ) : Vector3
 	return Vector3( v.x, v.y, z );
 }
 
+static function To3Array( v:Vector3 ) : float[]
+{
+	return [v.x, v.y, v.z];
+}
+
+static function To2Array( v:Vector3 ) : float[]
+{
+	return [v.x, v.y];
+}
+
 static function SetTexture( obj : GameObject, tex : Texture2D )
 {
 	obj.renderer.material.mainTexture = tex;
