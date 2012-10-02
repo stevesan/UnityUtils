@@ -2,6 +2,10 @@
 
 import System.IO;
 
+//----------------------------------------
+//  General utiliy functions
+//----------------------------------------
+
 static function Assert( condition : boolean ) : boolean
 {
 	if( !condition )
@@ -12,7 +16,7 @@ static function Assert( condition : boolean ) : boolean
 static function Assert( condition : boolean, msg:String ) : boolean
 {
 	if( !condition )
-		Debug.LogError("Assert failed!!! Msg: "+msg);
+		Debug.LogError("ASSERT FAILED: "+msg);
 	return condition;
 
 }
@@ -102,6 +106,16 @@ static function ToVector3( v:Vector2, z:float ) : Vector3
 	return Vector3( v.x, v.y, z );
 }
 
+static function To3Array( v:Vector3 ) : float[]
+{
+	return [v.x, v.y, v.z];
+}
+
+static function To2Array( v:Vector3 ) : float[]
+{
+	return [v.x, v.y];
+}
+
 static function SetTexture( obj : GameObject, tex : Texture2D )
 {
 	obj.renderer.material.mainTexture = tex;
@@ -114,6 +128,19 @@ static function SetParticleMatOpacity( mat : Material, frac : float )
 	c.a = frac / 2.0;	// for whatever reason, the tint color makes the rendering fully opaque when alpha = 0.5..
 	mat.SetColor("_TintColor", c);
 }
+
+static function SetRenderFlagRecursively( obj : GameObject, value:boolean ) : void
+{
+	var renderer = obj.GetComponent(Renderer);
+	if( renderer != null )
+		renderer.enabled = value;
+	for( var child:Transform in obj.transform ) {
+		SetRenderFlagRecursively( child.gameObject, value );
+	}
+}
+
+static function HideAll( obj : GameObject ) { SetRenderFlagRecursively( obj, false ); }
+static function ShowAll( obj : GameObject ) { SetRenderFlagRecursively( obj, true ); }
 
 static function DestroyObjs( objs : Array )
 {
