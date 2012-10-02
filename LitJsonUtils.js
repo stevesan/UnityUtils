@@ -1,6 +1,7 @@
 #pragma strict
 
 import System.Text;
+import LitJson;
 
 /* Utilities for using LitJson */
 
