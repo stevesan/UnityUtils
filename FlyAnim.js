@@ -2,9 +2,13 @@
 // Quick component for making game objects do "fly" animations - ie. go from one
 // spot to another in a non-linear way, useful for posting scores, etc.
 
+var applyAsDelta = false;
 var start : Vector3;
 var end : Vector3;
 var animSecs : float = 1.0;
+
+var inScreenSpace = false;
+var mainCamera : Camera = null;
 
 var hideOnEnd = true;	// disable rendering when animation is done?
 
@@ -13,6 +17,7 @@ var hideOnEnd = true;	// disable rendering when animation is done?
 private var showUntilNextTrigger = false;	
 
 private var remainSecs : float = 0.0;
+private var posAtStart:Vector3;
 
 function ShowButDonotAnim()
 {
@@ -27,26 +32,46 @@ function Hide()
 function StartAnim() {
 	showUntilNextTrigger = false;	// reset this flag
 	remainSecs = animSecs;
+
+	if( applyAsDelta )
+		posAtStart = transform.position;
 }
+
+function Play() { StartAnim(); }
 
 function Update () {
 
 	if( remainSecs > 0.0 )
 	{
 		var alpha = 1 - remainSecs/animSecs;
-		// TODO non linear interp
-		transform.position = Vector3.Lerp( start, end, alpha*alpha );
+		var value = Vector3.Lerp( start, end, alpha*alpha );
+
+		if( inScreenSpace ) {
+			var ray = mainCamera.ScreenPointToRay( value );
+			var t = -ray.origin.z / ray.direction.z;
+			value = ray.origin + t*ray.direction;
+		}
+
+		if( applyAsDelta )
+			transform.position = posAtStart + value;
+		else
+			transform.position = value;
+
+		if( renderer )
 			renderer.enabled = true;
+
 		remainSecs -= Time.deltaTime;
 	}
 	else
 	{
-		if( showUntilNextTrigger )
-			renderer.enabled = true;
-		else {	
-			if( hideOnEnd )
-			{
-				renderer.enabled = false;
+		if( renderer ) {
+			if( showUntilNextTrigger )
+				renderer.enabled = true;
+			else {	
+				if( hideOnEnd )
+				{
+					renderer.enabled = false;
+				}
 			}
 		}
 	}
