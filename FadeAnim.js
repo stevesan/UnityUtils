@@ -1,24 +1,42 @@
+#pragma strict
 
-var holdDuration = 0.5;
-var fadeDuration = 0.5;
-var opacityStart = 1.0;
-var opacityEnd = 0.0;
-var playOnAwake = false;
-var loop = false;
+// TODO - make this a general tint animator
+
+var fadeInOnAwake = true;
+
 var targetColorName = '_TintColor';	// default for particle shaders
 // Best used with Particles/AlphaBlended shader
 
-private var timeRemain = 0.0;
+var fadeDuration = 1.0;
+var minOpacity = 0.0;
+var maxOpacity = 1.0;
+private var state = "stopped";
+private var fadeFraction = 0.0;
 
 function Awake()
 {
-	if( playOnAwake )
-		Play();
+	if( fadeInOnAwake )
+		FadeIn();
 }
 
-function Play()
+function FadeIn()
 {
-	timeRemain = holdDuration + fadeDuration;
+	state = "fadingin";
+}
+
+function FadeOut()
+{
+	state = "fadingout";
+}
+
+function Stop()
+{
+	state = "stopped";
+}
+
+function SetFade(value:float)
+{
+	fadeFraction = value;
 }
 
 function SetOpacity( frac : float )
@@ -30,26 +48,23 @@ function SetOpacity( frac : float )
 }
 
 function Update () {
-	if( timeRemain > 0.0 )
-	{
-		if( timeRemain > fadeDuration )
-			SetOpacity( opacityStart );
-		else
-		{
-			var alpha = 1.0 - timeRemain / fadeDuration;
-			var o = (1-alpha)*opacityStart + alpha*opacityEnd;
-			SetOpacity( o );
+	if( state == "fadingin" ) {
+		fadeFraction += Time.deltaTime / fadeDuration;
+		Debug.Log('set fade frc = '+fadeFraction);
+		if( fadeFraction > 1.0 ) {
+			fadeFraction = 1.0;
+			Stop();
 		}
-
-		timeRemain -= Time.deltaTime;
-
-		if( loop && timeRemain < 0.0 )
-			Play();
 	}
-	else
-	{
-		SetOpacity( opacityEnd );
+	else if( state == "fadingout" ) {
+		fadeFraction -= Time.deltaTime / fadeDuration;
+		if( fadeFraction < 0.0 ) {
+			fadeFraction = 0.0;
+			Stop();
+		}
 	}
+
+	SetOpacity( (1-fadeFraction)*minOpacity + fadeFraction*maxOpacity );
 }
 
 @script RequireComponent( Renderer );
