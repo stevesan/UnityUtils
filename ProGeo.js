@@ -275,8 +275,9 @@ class Mesh2D
 	//  Reflects along the given line
 	//	keepRight - which side of the line should be kept
 	//	This adds new edges with proper orientation
+    //  mirrorOrientation - if true, then orientation will be _mirrored_ instead of consistent
 	//----------------------------------------
-	function Reflect( l0:Vector2, l1:Vector2, keepRight:boolean )
+	function Reflect( l0:Vector2, l1:Vector2, keepRight:boolean, mirrorOrientation:boolean )
 	{
 		var npts = pts.length;
 
@@ -300,7 +301,7 @@ class Mesh2D
 
 		// keep right points and add their reflections
 		var newPts = new Array();
-		var pt2refl = new int[ npts ];
+		var old2ref = new int[ npts ];
 		var old2new = new int[ npts ];
 		for( i = 0; i < npts; i++ )
 		{
@@ -311,7 +312,7 @@ class Mesh2D
 
 				// add reflection
 				newPts.Push( Math2D.Reflect2D( pts[i], l0, l1 ) );
-				pt2refl[i] = newPts.length-1;
+				old2ref[i] = newPts.length-1;
 			}
 		}
 
@@ -326,13 +327,19 @@ class Mesh2D
 
 			if( ptIsOnRight[a] && ptIsOnRight[b] )
 			{
-				// yay add both this one and its reflection, going in the opposite direction
+				// yay add both this one and its reflection
 				newA.Push( old2new[a] );
 				newB.Push( old2new[b] );
 
-				// note the opposite direction
-				newA.Push( pt2refl[b] );
-				newB.Push( pt2refl[a] );
+                if( mirrorOrientation ) {
+				    newB.Push( old2ref[b] );
+				    newA.Push( old2ref[a] );
+                }
+                else {
+				    // note the opposite direction
+				    newA.Push( old2ref[b] );
+				    newB.Push( old2ref[a] );
+                }
 			}
 			else if( ptIsOnRight[a] && !ptIsOnRight[b] )
 			{
@@ -346,8 +353,14 @@ class Mesh2D
 				newB.Push( c );
 
 				// now its reflection with opposite direction
-				newA.Push( c );
-				newB.Push( pt2refl[a] );
+                if( mirrorOrientation ) {
+				    newB.Push( c );
+				    newA.Push( old2ref[a] );
+                }
+                else {
+				    newA.Push( c );
+				    newB.Push( old2ref[a] );
+                }
 			}
 			else if( !ptIsOnRight[a] && ptIsOnRight[b] )
 			{
@@ -357,12 +370,18 @@ class Mesh2D
 				c = newPts.length-1;
 
 				// register new edges
-				newA.Push( pt2refl[b] );
+				newA.Push( old2ref[b] );
 				newB.Push( c );
 
 				// now its reflection with opposite direction
-				newA.Push( c );
-				newB.Push( old2new[b] );
+                if( mirrorOrientation ) {
+                    newB.Push( c );
+                    newA.Push( old2new[b] );
+                }
+                else {
+                    newA.Push( c );
+                    newB.Push( old2new[b] );
+                }
 			}
 			else
 			{
@@ -374,6 +393,11 @@ class Mesh2D
 		edgeA = newA.ToBuiltin(int);
 		edgeB = newB.ToBuiltin(int);
 	}
+
+	function Reflect( l0:Vector2, l1:Vector2, keepRight:boolean )
+    {
+        Reflect( l0, l1, keepRight, false );
+    }
 
 	function Append( other:Mesh2D )
 	{
