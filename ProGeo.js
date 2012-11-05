@@ -369,19 +369,19 @@ class Mesh2D
 				newPts.Push( intx );
 				c = newPts.length-1;
 
-				// register new edges
-				newA.Push( old2ref[b] );
-				newB.Push( c );
-
-				// now its reflection with opposite direction
+				// left to center
                 if( mirrorOrientation ) {
-                    newB.Push( c );
-                    newA.Push( old2new[b] );
+                    newB.Push( old2ref[b] );
+                    newA.Push( c );
                 }
                 else {
-                    newA.Push( c );
-                    newB.Push( old2new[b] );
+                    newA.Push( old2ref[b] );
+                    newB.Push( c );
                 }
+
+                // center to original
+                newA.Push( c );
+                newB.Push( old2new[b] );
 			}
 			else
 			{
