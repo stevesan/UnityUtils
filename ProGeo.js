@@ -250,6 +250,9 @@ class Mesh2D
 	function GetNumVertices() : int { return pts.length; }
 	function GetNumEdges() : int { return edgeA.length; }
 
+    function GetEdgeStart(edge:int) : Vector2 { return pts[ edgeA[edge] ]; }
+    function GetEdgeEnd(edge:int) : Vector2 { return pts[ edgeB[edge] ]; }
+
 	function DebugDraw( color:Color, dur:float )
 	{
 		for( var e = 0; e < edgeA.length; e++ )

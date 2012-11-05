@@ -3,7 +3,7 @@
 import System.Collections.Generic;
 
 //----------------------------------------
-//  TODO - add proper Mesh2D stuff, ie. edge list
+//	All this does is give you a list of points. No topology or anything.
 //----------------------------------------
 class SvgPathBuilder
 {

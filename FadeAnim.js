@@ -50,7 +50,6 @@ function SetOpacity( frac : float )
 function Update () {
 	if( state == "fadingin" ) {
 		fadeFraction += Time.deltaTime / fadeDuration;
-		Debug.Log('set fade frc = '+fadeFraction);
 		if( fadeFraction > 1.0 ) {
 			fadeFraction = 1.0;
 			Stop();
