@@ -296,7 +296,15 @@ class Mesh2D
 		for( var i = 0; i < npts; i++ )
 		{
 			var toPt = (pts[i] - l0).normalized;
-			ptIsOnRight[i] = (Vector2.Dot( toPt, rightDir ) > 0 );
+            var dotp = Vector2.Dot( toPt, rightDir );
+            if( Mathf.Abs(dotp) < 1e-4 )
+            {
+                ptIsOnRight[i] = false;
+                // nudge it into the left half-space a little bit to avoid creating self-intersecting polygons
+                pts[i] -= rightDir*1e-4;
+            }
+            else
+                ptIsOnRight[i] = (dotp > 0 );
 		}
 
 		// keep right points and add their reflections
