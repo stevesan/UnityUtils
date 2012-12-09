@@ -2,20 +2,20 @@
 
 var duration = 1.0;
 var scales = Vector3(2,2,2);
-var fontScale = 2.0;
+var fontSizeMax = 30;
 var looping = false;
 var playOnAwake = false;
 
-private var startTime:float;
+private var startTime:float = 0.0;
 private var startScale:Vector3;
 private var startFontSize:float;
 private var state:String;
 
 function Start () {
-	state = "stopped";
 }
 
 function Awake() {
+	state = "stopped";
 	if( playOnAwake )
 		Play();
 }
@@ -47,19 +47,12 @@ function Update () {
 			}
 		}
 
-		if( frac < 0.5 ) {
-			frac = frac*2;
-			transform.localScale = Vector3.Scale( startScale, Vector3.Lerp(Vector3(1,1,1), scales, frac) );
-			if( GetComponent(GUIText) ) {
-				GetComponent(GUIText).fontSize = startFontSize * ((1-frac)*1 + frac*fontScale);
-			}
+		var lerpVal = Mathf.Sin(Mathf.PI*frac);
+
+		if( GetComponent(GUIText) ) {
+			GetComponent(GUIText).fontSize = (1-lerpVal)*startFontSize + lerpVal*fontSizeMax;
 		}
-		else {
-			frac = (frac-0.5)*2;
-			transform.localScale = Vector3.Scale( startScale, Vector3.Lerp(scales, Vector3(1,1,1), frac) );
-			if( GetComponent(GUIText) ) {
-				GetComponent(GUIText).fontSize = startFontSize * ((1-frac)*fontScale + frac*1);
-			}
-		}
+		else
+			transform.localScale = Vector3.Scale( startScale, Vector3.Lerp(Vector3(1,1,1), scales, lerpVal) );
 	}
 }
