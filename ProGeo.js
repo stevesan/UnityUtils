@@ -280,6 +280,7 @@ class Mesh2D
 	function Reflect( l0:Vector2, l1:Vector2, keepRight:boolean, mirrorOrientation:boolean )
 	{
 		var npts = pts.length;
+		var i = 0;
 
 		if( !keepRight )
 		{
@@ -293,11 +294,12 @@ class Mesh2D
 
 		// see which points are on the right side
 		var ptIsOnRight = new boolean[ npts ];
-		for( var i = 0; i < npts; i++ )
+		for( i = 0; i < npts; i++ )
 		{
 			var toPt = (pts[i] - l0).normalized;
             var dotp = Vector2.Dot( toPt, rightDir );
-            if( Mathf.Abs(dotp) < 1e-4 )
+            
+            if( Mathf.Abs(dotp) < 1e-4)
             {
                 ptIsOnRight[i] = false;
                 // nudge it into the left half-space a little bit to avoid creating self-intersecting polygons
@@ -306,7 +308,7 @@ class Mesh2D
             else
                 ptIsOnRight[i] = (dotp > 0 );
 		}
-
+		
 		// keep right points and add their reflections
 		var newPts = new Array();
 		var old2ref = new int[ npts ];
@@ -399,7 +401,7 @@ class Mesh2D
 
 		pts = newPts.ToBuiltin(Vector2);
 		edgeA = newA.ToBuiltin(int);
-		edgeB = newB.ToBuiltin(int);
+		edgeB = newB.ToBuiltin(int);		
 	}
 
 	function Reflect( l0:Vector2, l1:Vector2, keepRight:boolean )
@@ -529,7 +531,7 @@ class PolyVertexNbors
 }
 
 class Vector2IdPair {
-	var v : Vector3;
+	var v : Vector2;
 	var id : int;
 
 	static function CompareByX( a:Vector2IdPair, b:Vector2IdPair ) : int {
@@ -584,14 +586,16 @@ class PlaneSweep
 		sortedVerts = _sortedVerts;
 		nbors = _nbors;
 		currSid = 0;
-
+		
 		//----------------------------------------
-		//  Compute vert2 edge tables
+		//  Build vert2edge tables
 		//----------------------------------------
+		
 		var NE = edge2verts.Count/2;
 		var NV = poly.pts.length;
 		vert2prevEdge = new List.<int>(NV);
 		vert2nextEdge = new List.<int>(NV);
+		
 		for( var i = 0; i < NV; i++ ) {
 			vert2prevEdge.Add(-1);
 			vert2nextEdge.Add(-1);
@@ -611,7 +615,9 @@ class PlaneSweep
 		//----------------------------------------
 		//  Init swept edges table
 		//----------------------------------------
+		
 		edge2info = new List.<ActiveEdgeInfo>(NE);
+		
 		for( eid = 0; eid < NE; eid++ ) {
 			edge2info.Add(null);
 		}
@@ -736,7 +742,6 @@ class PlaneSweep
 	//  Performs one step of the plane sweep algo.
 	//	Returns true if more steps are needed
 	//----------------------------------------
-	function Step() : boolean { return Step(false); }
 	function Step( verbose:boolean ) : boolean
 	{
 		// safety
@@ -753,7 +758,7 @@ class PlaneSweep
 		if( currType == VertType.START ) {
 			if( verbose ) Debug.Log('START event');
 			ActivateEdge( e1, currVid, false );
-			//OPT: ActivateEdge( e2, currVid, false );
+			//OPTIMIZATION: ActivateEdge( e2, currVid, false );
 		}
 		else if( currType == VertType.END ) {
 			if( verbose ) Debug.Log('END event');
@@ -775,7 +780,7 @@ class PlaneSweep
 			edge2info[aboveEdge].helperIsMergeVert = false;
 
 			ActivateEdge( e1, currVid, false );
-			//OPT: ActivateEdge( e2, currVid, false );
+			//OPTIMIZATION: ActivateEdge( e2, currVid, false );
 		}
 		else if( currType == VertType.MERGE ) {
 			if( verbose ) Debug.Log('MERGE event');
@@ -809,7 +814,7 @@ class PlaneSweep
 			if( verbose ) Debug.Log('edge '+aboveEdge+' new helper = '+currVid);
 
 			// It's important to add this edge after we do the above helper-change, since we don't want this edge influenceing the above-search
-			//OPT: ActivateEdge( e2, currVid, false );
+			//OPTIMIZATION: ActivateEdge( e2, currVid, false );
 		}
 
 		// step
@@ -818,6 +823,9 @@ class PlaneSweep
 
 		return moreSteps;
 	}
+	
+	function Step() : boolean { return Step(false); }
+
 }
 
 //----------------------------------------
@@ -825,6 +833,8 @@ class PlaneSweep
 //----------------------------------------
 static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:boolean )
 {
+	var verbose = Input.GetButtonDown("DebugNext");
+
 	var NV = poly.GetNumVertices();
 
 	// create nbor query datastructure
@@ -857,13 +867,30 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 	}
 
 	sortedVerts.Sort( Vector2IdPair.CompareByX );
+	
+	if( verbose ) {
+		var str = "";
+		for( i = 0; i < sortedVerts.Count; i++ )
+		{
+			str += sortedVerts[i].v + " ";
+		}
+		Debug.Log(str);
+	}
 
 	//----------------------------------------
 	//  Let the plane sweep algorithm do its thing
 	//----------------------------------------
 	var ps = new PlaneSweep();
-	ps.Reset( poly, edge2verts, sortedVerts, nbors );
+	ps.Reset( poly, edge2verts, sortedVerts, nbors );	
 	while( ps.Step() );
+	
+	if( Input.GetButton("DebugPrev") )
+	{
+		for( i = 0; i < poly.pts.length; i++ )
+		{
+			DebugText.Add( poly.pts[i], "("+i+")" );
+		}
+	}
 
 	//----------------------------------------
 	//  Traverse the graph to extract and triangulate monotone pieces
@@ -879,7 +906,15 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 		edgeVisited[ eid ] = false;
 
 	var firstEid = 0;
-
+	var numPieces = 0;
+	
+	var piecesDebugColor:Color[] = [ Color.red, Color.green, Color.blue, Color.white, Color.black, Color.yellow, Color.cyan, Color.magenta ];
+	
+	if( Input.GetButtonDown("DebugPrev") )
+	{
+		Debug.Log("Debugging");
+	}
+	
 	while( firstEid < NV ) {
 		// move the first vid cursor to the next unvisited edge
 		while( firstEid < NV && edgeVisited[ firstEid ] )
@@ -944,26 +979,50 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 			pieceEdges.Add( bestEid );
 			currEid = bestEid;
 		}
-		
-		//----------------------------------------
-		//  Draw it
-		//	TEMP TEMP DEBUG
-		//----------------------------------------
-		if( false ) {
-			var c = Color.red;
+
+		#if UNITY_EDITOR		
+		if( Input.GetButton("DebugPrev") ) {
+			
 			for( var ie = 0; ie < pieceEdges.Count; ie++ ) {
+			
+				var clr = piecesDebugColor[numPieces % piecesDebugColor.length];
+				
 				eid = pieceEdges[ie];
 				var s = edge2verts[ 2*eid + 0 ];
 				var e = edge2verts[ 2*eid + 1 ];
-				Debug.DrawLine( poly.pts[s], poly.pts[e], c, 0 );
+				var a = poly.pts[s];
+				var b = poly.pts[e];
+/*				
+				var c = (a+b)/2.0;
+				var margin = 0.1;
+				a = a + (c-a).normalized*margin;
+				b = b + (c-b).normalized*margin;
+				var right = Math2D.PerpCCW((b-a).normalized);
+				a += right*margin;
+				b += right*margin;
+	*/			
+				var labelPt = (a+b)/2.0 + Math2D.PerpCCW((b-a).normalized)*0.2;
+				Debug.DrawLine( a, b, clr, 0 );
+				Debug.DrawLine( labelPt, a, Color.white, 0 );
+				Debug.DrawLine( labelPt, b, Color.white, 0 );
+				DebugText.Add( labelPt, ""+eid );
 			}
 		}
+		#endif
 
 		//----------------------------------------
 		//  Triangulate this piece
 		//----------------------------------------
 		TriangulateMonotonePolygon( sortedVerts, edge2verts, pieceEdges, tris );
+		numPieces++;
 	}
+	
+	#if UNITY_EDITOR
+	if( Input.GetButtonDown("DebugPrev") )
+	{
+		Debug.Log("npieces = "+numPieces);
+	}
+	#endif
 
 	//----------------------------------------
 	//  Finally, transfer to the mesh
@@ -992,6 +1051,7 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 	for( i = 0; i < uv.length; i++ ) uv[i] = meshVerts[i];
 	mesh.uv = uv;
 
+	// Mesh bounds are used for visiblity culling
 	mesh.RecalculateBounds();
 	
 	//Debug.Log('triangulated polygon to '+tris.Count+' triangles');
@@ -1127,7 +1187,7 @@ static function TriangulateMonotonePolygon(
 
 }
 
-static function BuildBeltMesh( poly:Mesh2D, zMin, zMax, normalPointingRight, mesh )
+static function BuildBeltMesh( poly:Mesh2D, zMin:float, zMax:float, normalPointingRight:boolean, mesh:Mesh )
 {
 	BuildBeltMesh( poly.pts, poly.edgeA, poly.edgeB, zMin, zMax, normalPointingRight, mesh );
 }

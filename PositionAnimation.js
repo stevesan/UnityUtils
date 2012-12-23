@@ -19,7 +19,7 @@ function Start () {
 
 function Play()
 {
-	origPosition = transform.position;
+	origPosition = transform.localPosition;
 	anim.Play();
 }
 
@@ -29,6 +29,6 @@ function Update () {
 		var t = anim.GetFraction();
 		var sinFactor = Mathf.Sin( 2*Mathf.PI*numCycles*t );
 		var decayFactor = 1 - Mathf.Pow(t, decayPow);
-		transform.position = origPosition + sinFactor*offset*decayFactor;
+		transform.localPosition = origPosition + sinFactor*offset*decayFactor;
 	}
 }
