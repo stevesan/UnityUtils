@@ -32,6 +32,7 @@ function Awake()
 
 function Update()
 {
+#if UNITY_EDITOR
 	if( entries.Count > 0 )
 	{
 		// OnGUI-draw seems to be called after all script updates, so we should clear things
@@ -39,10 +40,12 @@ function Update()
 		// entries from the PREVIOUS frame.
 		entries.Clear();
 	}
+#endif
 }
 
 function OnGUI()
 {
+#if UNITY_EDITOR
   if (Application.isEditor)  // or check the app debug flag
   {
 	  var style = new GUIStyle();
@@ -56,6 +59,7 @@ function OnGUI()
     	GUI.Label(rect, entry.text, style);
     }
   }
+#endif
 }
 
 static private var s_singleton:DebugText = null;
@@ -67,6 +71,8 @@ static function Get()
 
 static function Add( worldPos:Vector3, text:String )
 {
+#if UNITY_EDITOR
 	s_singleton.entries.Add( new DebugTextEntry(worldPos, text) );
+#endif
 }
 

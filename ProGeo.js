@@ -546,8 +546,9 @@ class TriIndices {
 //----------------------------------------
 //  Helper class for simple poly triangulation
 //----------------------------------------
-class PlaneSweep
+class MonotoneDecomposition
 {
+	enum VertType { REGULAR_TOP, REGULAR_BOTTOM, START, END, MERGE, SPLIT };
 
 	//----------------------------------------
 	//  Pointers to helper info
@@ -561,15 +562,32 @@ class PlaneSweep
 	//  Internal state
 	//----------------------------------------
 
-	class ActiveEdgeInfo {
-		var helperVertId:int;
-		var helperIsMergeVert:boolean;
+	class HelperInfo {
+		var vid:int;
+		var type:VertType;
+        var topPieceId:int;
+        var botPieceId:int;
+
+        function IsMerge() : boolean { return type == VertType.MERGE; }
 	}
-	private var edge2info = new List.<ActiveEdgeInfo>();
+	private var edgeHelper:List.<HelperInfo> = null;
+    private var edgePieceId:List.<int> = null;
+    private var numPieces:int = 0;
 
 	private var vert2prevEdge = new List.<int>();
 	private var vert2nextEdge = new List.<int>();
+	private var vert2type = new List.<String>();
 	private var currSid:int;
+
+    function GetVertexType(vid:int) : String { return vert2type[vid]; }
+
+    function GetNumPieces() { return numPieces; }
+
+    function GetEdgePieceId(eid:int)
+    {
+    	Utils.Assert(eid < edgePieceId.Count );
+    	return edgePieceId[eid];
+	}
 
 	//----------------------------------------
 	//  Performs the plane sweep algorithm and adds edges for a
@@ -595,10 +613,12 @@ class PlaneSweep
 		var NV = poly.pts.length;
 		vert2prevEdge = new List.<int>(NV);
 		vert2nextEdge = new List.<int>(NV);
+        vert2type = new List.<String>(NV);
 		
 		for( var i = 0; i < NV; i++ ) {
 			vert2prevEdge.Add(-1);
 			vert2nextEdge.Add(-1);
+            vert2type.Add("-");
 		}
 
 		for( var eid = 0; eid < NE; eid++ ) {
@@ -616,24 +636,28 @@ class PlaneSweep
 		//  Init swept edges table
 		//----------------------------------------
 		
-		edge2info = new List.<ActiveEdgeInfo>(NE);
+		edgeHelper = new List.<HelperInfo>(NE);
+        edgePieceId = new List.<int>(NE);
 		
 		for( eid = 0; eid < NE; eid++ ) {
-			edge2info.Add(null);
+			edgeHelper.Add(null);
+            edgePieceId.Add(-1);
 		}
+
+        numPieces = 0;
 	}
 
 	function GetEdgeStart( eid:int ) { return poly.pts[ edge2verts[2*eid+0] ]; }
+    
 	function GetEdgeEnd( eid:int ) { return poly.pts[ edge2verts[2*eid+1] ]; }
-	function GetEdgeHelper( eid:int ) { return edge2info[ eid ].helperVertId; }
 
 	function FindEdgeAbove( p:Vector2 ) : int
 	{
 		var bestEid = -1;
 		var bestDist = 0.0;
 
-		for( var eid = 0; eid < edge2info.Count; eid++ ) {
-			if( edge2info[eid] != null ) {
+		for( var eid = 0; eid < edgeHelper.Count; eid++ ) {
+			if( edgeHelper[eid] != null ) {
 				// edge is still in sweep
 				var y = Math2D.EvalLineAtX( GetEdgeStart(eid), GetEdgeEnd(eid), p.x );
 				if( y > p.y ) {
@@ -655,14 +679,14 @@ class PlaneSweep
 	function DebugDrawActiveEdges( c:Color, diagColor:Color )
 	{
 		// draw active edges
-		for( var eid = 0; eid < edge2info.Count; eid++ ) {
-			if( edge2info[eid] != null ) {
+		for( var eid = 0; eid < edgeHelper.Count; eid++ ) {
+			if( edgeHelper[eid] != null ) {
 				Debug.DrawLine( GetEdgeStart(eid), GetEdgeEnd(eid), c );
 			}
 		}
 
 		// draw added diagonals
-		for( eid = edge2info.Count; eid < edge2verts.Count/2; eid++ ) {
+		for( eid = edgeHelper.Count; eid < edge2verts.Count/2; eid++ ) {
 				Debug.DrawLine( GetEdgeStart(eid), GetEdgeEnd(eid), diagColor );
 		}
 	}
@@ -670,7 +694,6 @@ class PlaneSweep
 	//----------------------------------------
 	//  Stuff for polygon triangulation
 	//----------------------------------------
-	enum VertType { REGULAR_TOP, REGULAR_BOTTOM, START, END, MERGE, SPLIT };
 
 	function EvalVertType( vid:int ) : VertType
 	{
@@ -706,36 +729,70 @@ class PlaneSweep
 		}
 	}
 
-	private function AddDiagonalIfMergeHelper( eid:int, other:int )
+    // Returns the piece ID of the BOTTOM piece if diagonals were added. Otherwise, -1
+	private function AddDiagonalIfMergeHelper( eid:int, otherVid:int, returnBot:boolean ) : int
 	{
-		if( !Utils.Assert( eid < edge2info.Count, "edgeId = " +eid+ " edge2info.Count = "+edge2info.Count ) )
-			return;
+		if( !Utils.Assert( eid < edgeHelper.Count, "edgeId = " +eid+ " edgeHelper.Count = "+edgeHelper.Count ) )
+			return -1;
 		if( !Utils.Assert( eid >= 0, "edgeId = "+eid ) )
-			return;
-		if( edge2info[ eid ] != null && edge2info[ eid ].helperIsMergeVert ) 
-			AddDoubledDiagonal( edge2info[eid].helperVertId, other );
+			return -1;
+		if( edgeHelper[ eid ] != null && edgeHelper[ eid ].IsMerge() ) 
+        {
+            var helper = GetHelper(eid);
+            Utils.Assert( helper.topPieceId != -1 );
+            Utils.Assert( helper.botPieceId != -1 );
+			AddDoubledDiagonal( helper.vid, otherVid, helper.topPieceId, helper.botPieceId );
+
+            if( returnBot )
+                return helper.botPieceId;
+            else
+                return helper.topPieceId;
+        }
+        else
+            return -1;
 	}
 
-	private function ActivateEdge( eid:int, helper:int, isMerge:boolean )
+    private function AddDiagonalIfMergeHelper( eid:int, otherVid:int )
+    {
+        AddDiagonalIfMergeHelper( eid, otherVid, false );
+    }
+
+	private function SetHelper( eid:int, vid:int, type:VertType, topPid:int, botPid:int )
 	{
-		Utils.Assert( edge2info[eid] == null );
-		var info = new ActiveEdgeInfo();
-		info.helperVertId = helper;
-		info.helperIsMergeVert = isMerge;
-		edge2info[ eid ] = info;
+		var info = edgeHelper[eid];
+
+        if( info == null )
+        {
+            info = new HelperInfo();
+            edgeHelper[eid] = info;
+        }
+
+        info.vid = vid;
+        info.type = type;
+        info.topPieceId = topPid;
+        info.botPieceId = botPid;
 	}
+
+    private function GetHelper(eid:int)
+    {
+        return edgeHelper[eid];
+    }
 
 	private function DeactivateEdge( eid:int ) 
 	{
-		edge2info[ eid ] = null;
+		edgeHelper[ eid ] = null;
 	}
 
-	private function AddDoubledDiagonal( v1:int, v2:int ) 
+    // The top/bot terminology assumes v1->v2 is left->right
+	private function AddDoubledDiagonal( v1:int, v2:int, topPieceId:int, botPieceId:int ) 
 	{
 		edge2verts.Add( v1 );
 		edge2verts.Add( v2 );
 		edge2verts.Add( v2 );
 		edge2verts.Add( v1 );
+
+        edgePieceId.Add( topPieceId );
+        edgePieceId.Add( botPieceId );
 	}
 
 	//----------------------------------------
@@ -754,68 +811,155 @@ class PlaneSweep
 		var e1 = vert2prevEdge[currVid];
 		var e2 = vert2nextEdge[currVid];
 		var aboveEdge = -1;
+        var botPieceId = -1;
+        var topPieceId = -1;
+        var pieceId = -1;
 
-		if( currType == VertType.START ) {
-			if( verbose ) Debug.Log('START event');
-			ActivateEdge( e1, currVid, false );
-			//OPTIMIZATION: ActivateEdge( e2, currVid, false );
+		if( currType == VertType.START )
+        {
+            vert2type[currVid] = "S";
+            Utils.Assert( edgePieceId[e1] == -1 );
+            Utils.Assert( edgePieceId[e2] == -1 );
+
+            pieceId = numPieces++;
+            SetHelper( e1, currVid, currType, pieceId, pieceId );
+            edgePieceId[e1] = pieceId;
+            edgePieceId[e2] = pieceId;
 		}
-		else if( currType == VertType.END ) {
-			if( verbose ) Debug.Log('END event');
-			AddDiagonalIfMergeHelper( e1, currVid );
+		else if( currType == VertType.END )
+        {
+            vert2type[currVid] = "E";
+            Utils.Assert( edgePieceId[e1] != -1 );
+            Utils.Assert( edgePieceId[e2] != -1 );
+
+            if( GetHelper(e1) != null && GetHelper(e1).IsMerge() )
+            {
+                Utils.Assert( edgePieceId[e1] == GetHelper(e1).botPieceId );
+                Utils.Assert( edgePieceId[e2] == GetHelper(e1).topPieceId );
+            }
+
+            // I don't think e1 should ever be active, since it's a "bottom" edge
+            Utils.Assert( GetHelper(e1) == null );
+			//AddDiagonalIfMergeHelper( e1, currVid );
+			//DeactivateEdge( e1 );
+
 			AddDiagonalIfMergeHelper( e2, currVid );
-			DeactivateEdge( e1 );
 			DeactivateEdge( e2 );
 		}
 		else if( currType == VertType.SPLIT ) {
-			if( verbose ) Debug.Log('SPLIT event');
+            vert2type[currVid] = "P";
+            Utils.Assert( edgePieceId[e1] == -1 );
+            Utils.Assert( edgePieceId[e2] == -1 );
 
-			// add diag to above edge
 			aboveEdge = FindEdgeAbove( poly.pts[currVid] );
-			if( verbose ) Debug.Log('above edge = '+aboveEdge);
-			if( verbose ) Debug.Log('above edge helper = '+edge2info[aboveEdge].helperVertId);
 			Utils.Assert( aboveEdge != -1 );
-			AddDoubledDiagonal( currVid, edge2info[aboveEdge].helperVertId );
-			edge2info[aboveEdge].helperVertId = currVid;
-			edge2info[aboveEdge].helperIsMergeVert = false;
 
-			ActivateEdge( e1, currVid, false );
-			//OPTIMIZATION: ActivateEdge( e2, currVid, false );
+            var helper = GetHelper(aboveEdge);
+            Utils.Assert( helper.topPieceId != -1 );
+            Utils.Assert( helper.botPieceId != -1 );
+            Utils.Assert( helper.type != VertType.END );
+
+            if( helper.type == VertType.MERGE )
+            {
+                Utils.Assert( helper.topPieceId != helper.botPieceId );
+                AddDoubledDiagonal( helper.vid, currVid, helper.topPieceId, helper.botPieceId );
+                edgePieceId[e1] = helper.botPieceId;
+                edgePieceId[e2] = helper.topPieceId;
+                SetHelper( aboveEdge, currVid, currType, helper.topPieceId, helper.topPieceId );
+                SetHelper( e1, currVid, currType, edgePieceId[e1], edgePieceId[e1] );
+            }
+            else if( vert2prevEdge[helper.vid] == aboveEdge )
+            {
+                Utils.Assert( helper.type == VertType.REGULAR_TOP || helper.type == VertType.START || helper.type == VertType.SPLIT );
+                pieceId = numPieces++;
+                AddDoubledDiagonal( helper.vid, currVid, pieceId, helper.botPieceId );
+                edgePieceId[ aboveEdge ] = pieceId;
+                edgePieceId[e1] = helper.botPieceId;
+                edgePieceId[e2] = pieceId;
+                SetHelper( aboveEdge, currVid, currType, pieceId, pieceId );
+                SetHelper( e1, currVid, currType, edgePieceId[e1], edgePieceId[e1] );
+            }
+            else
+            {
+                Utils.Assert( helper.type == VertType.REGULAR_BOTTOM || helper.type == VertType.SPLIT );
+                pieceId = numPieces++;
+                AddDoubledDiagonal( helper.vid, currVid, helper.topPieceId, pieceId );
+                edgePieceId[ vert2nextEdge[helper.vid] ] = pieceId;
+                edgePieceId[e1] = pieceId;
+                edgePieceId[e2] = helper.topPieceId;
+                SetHelper( aboveEdge, currVid, currType, helper.topPieceId, helper.topPieceId );
+                SetHelper( e1, currVid, currType, edgePieceId[e1], edgePieceId[e1] );
+            }
 		}
 		else if( currType == VertType.MERGE ) {
-			if( verbose ) Debug.Log('MERGE event');
-			AddDiagonalIfMergeHelper( e1, currVid );
-			AddDiagonalIfMergeHelper( e2, currVid );
-			DeactivateEdge( e1 );
+            vert2type[currVid] = "M";
+            Utils.Assert( edgePieceId[e1] != -1 );
+            Utils.Assert( edgePieceId[e2] != -1 );
+            Utils.Assert( edgePieceId[e1] != edgePieceId[e2] );
+
+            // e1 is a bottom edge, so never should be active
+            Utils.Assert( GetHelper(e1) == null );
+			//AddDiagonalIfMergeHelper( e1, currVid );
+			//DeactivateEdge( e1 );
+
+            // Handle bottom side
+			botPieceId = AddDiagonalIfMergeHelper( e2, currVid, true );
 			DeactivateEdge( e2 );
+            if( botPieceId == -1 )
+                botPieceId = edgePieceId[e2];
 			
-			// change helper
+            // Handle top side
 			aboveEdge = FindEdgeAbove( poly.pts[currVid] );
-			AddDiagonalIfMergeHelper( aboveEdge, currVid );
-			edge2info[aboveEdge].helperVertId = currVid;
-			edge2info[aboveEdge].helperIsMergeVert = true;
+			topPieceId = AddDiagonalIfMergeHelper( aboveEdge, currVid, false );
+            if( topPieceId == -1 )
+                topPieceId = edgePieceId[e1];
+
+            SetHelper( aboveEdge, currVid, currType, topPieceId, botPieceId );
 		}
 		else if( currType == VertType.REGULAR_TOP ) {
-			if( verbose ) Debug.Log('REG TOP event');
-			AddDiagonalIfMergeHelper( e2, currVid );
+            vert2type[currVid] = "T";
+            Utils.Assert( edgePieceId[e1] == -1 );
+            Utils.Assert( edgePieceId[e2] != -1 );
+
+			botPieceId = AddDiagonalIfMergeHelper( e2, currVid, true );
 			DeactivateEdge( e2 );
-			ActivateEdge( e1, currVid, false );
+            if( botPieceId == -1 )
+                botPieceId = edgePieceId[e2];
+
+            edgePieceId[e1] = botPieceId;
+			SetHelper(e1, currVid, currType, botPieceId, botPieceId);
 		}
 		else if( currType == VertType.REGULAR_BOTTOM ) {
-			if( verbose ) Debug.Log('REG BoT event');
-			AddDiagonalIfMergeHelper( e1, currVid );
-			DeactivateEdge( e1 );
+            vert2type[currVid] = "B";
+            Utils.Assert( edgePieceId[e1] != -1 );
+            Utils.Assert( edgePieceId[e2] == -1 );
+
+            Utils.Assert( GetHelper(e1) == null );
+            Utils.Assert( GetHelper(e2) == null );
+
+			//topPieceId = AddDiagonalIfMergeHelper( e1, currVid, false );
+			//DeactivateEdge( e1 );
+
+            //if( topPieceId == -1 )
+                //edgePieceId[e2] = edgePieceId[e1];
+            //else
+            //{
+                //Utils.Assert(false, "I don't ever expect this to happen, since merge-helpers are only ever added to 'above' edges");
+                // If this actually does happen, then I need to handle the fixing of prev/next edges for this helper
+                //edgePieceId[e2] = topPieceId;
+            //}
 
 			// Steve: This is my "bug fix" that both algo descriptions seem to ignore, but it's necessary to keep the helper invariant
 			aboveEdge = FindEdgeAbove( poly.pts[currVid] );
-			AddDiagonalIfMergeHelper( aboveEdge, currVid );
-			edge2info[aboveEdge].helperVertId = currVid;
-			edge2info[aboveEdge].helperIsMergeVert = false;
-			if( verbose ) Debug.Log('edge '+aboveEdge+' new helper = '+currVid);
+			topPieceId = AddDiagonalIfMergeHelper( aboveEdge, currVid, false );
+            if( topPieceId == -1 )
+                topPieceId = edgePieceId[e1];
 
-			// It's important to add this edge after we do the above helper-change, since we don't want this edge influenceing the above-search
-			//OPTIMIZATION: ActivateEdge( e2, currVid, false );
+            edgePieceId[e2] = topPieceId;
+            SetHelper( aboveEdge, currVid, currType, topPieceId, topPieceId );
 		}
+
+        vert2type[currVid] += "-"+currSid;
 
 		// step
 		currSid++;
@@ -826,7 +970,47 @@ class PlaneSweep
 	
 	function Step() : boolean { return Step(false); }
 
+    function DebugDrawState()
+    {
+        var piecesDebugColor:Color[] = [ Color.red, Color.green, Color.blue, Color.white, Color.black, Color.yellow, Color.cyan, Color.magenta ];
+
+        for( var pieceId = 0; pieceId < GetNumPieces(); pieceId++ )
+        {
+            for( var eid = 0; eid < edge2verts.Count/2; eid++ ) {
+                if( GetEdgePieceId(eid) != pieceId )
+                    continue;
+
+                var clr = piecesDebugColor[pieceId % piecesDebugColor.length];
+
+                var svid = edge2verts[ 2*eid + 0 ];
+                var evid = edge2verts[ 2*eid + 1 ];
+                var a = poly.pts[svid];
+                var b = poly.pts[evid];
+
+                /*				
+                                var c = (a+b)/2.0;
+                                var margin = 0.1;
+                                a = a + (c-a).normalized*margin;
+                                b = b + (c-b).normalized*margin;
+                                var right = Math2D.PerpCCW((b-a).normalized);
+                                a += right*margin;
+                                b += right*margin;
+                 */			
+                var labelPt = (a+b)/2.0 + Math2D.PerpCCW((b-a).normalized)*0.2;
+                Debug.DrawLine( a, b, clr, 0 );
+                Debug.DrawLine( labelPt, a, clr, 0 );
+                Debug.DrawLine( labelPt, b, clr, 0 );
+                //DebugText.Add( labelPt, ""+eid+"/"+GetEdgePieceId(eid) );
+                DebugText.Add( labelPt, ""+pieceId );
+
+                DebugText.Add( a, GetVertexType(svid) );
+                DebugText.Add( b, GetVertexType(evid) );
+            }
+        }
+    }
 }
+
+static var s_debugSweepStep = 0;
 
 //----------------------------------------
 //  
@@ -836,6 +1020,7 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 	var verbose = Input.GetButtonDown("DebugNext");
 
 	var NV = poly.GetNumVertices();
+    var eid:int = -1;
 
 	// create nbor query datastructure
 	var nbors = new PolyVertexNbors();
@@ -877,24 +1062,37 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 		Debug.Log(str);
 	}
 
+    if( Input.GetButtonDown("DebugPrev") )
+        s_debugSweepStep--;
+    else if( Input.GetButtonDown("DebugNext") )
+        s_debugSweepStep++;
+
 	//----------------------------------------
 	//  Let the plane sweep algorithm do its thing
 	//----------------------------------------
-	var ps = new PlaneSweep();
-	ps.Reset( poly, edge2verts, sortedVerts, nbors );	
-	while( ps.Step() );
-	
-	if( Input.GetButton("DebugPrev") )
-	{
-		for( i = 0; i < poly.pts.length; i++ )
-		{
-			DebugText.Add( poly.pts[i], "("+i+")" );
-		}
-	}
+    var step = 0;
+	var md = new MonotoneDecomposition();
+	md.Reset( poly, edge2verts, sortedVerts, nbors );	
+	while( md.Step() )
+    {
+        if( step == s_debugSweepStep )
+        {
+            md.DebugDrawState();
+            if( Input.GetButtonDown("DebugReset") )
+            {
+                Debug.Log("debug me");
+            }
+        }
+        step++;
+    }
+
+    if( s_debugSweepStep == -1 )
+    {
+        md.DebugDrawState();
+    }
 
 	//----------------------------------------
 	//  Traverse the graph to extract and triangulate monotone pieces
-	// 	TODO TEMP - it may be possible to extract the pieces as we're doing the decomposition, so we don't have to do this somewhat expensive monotone-piece extraction part
 	//----------------------------------------
 
 	// we'll store the tri specs in this list
@@ -902,21 +1100,13 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 
 	var NE = edge2verts.Count/2;
 	var edgeVisited = new boolean[ NE ];
-	for( var eid = 0; eid < NV; eid++ )
+	for( eid = 0; eid < NV; eid++ )
 		edgeVisited[ eid ] = false;
 
 	var firstEid = 0;
-	var numPieces = 0;
-	
-	var piecesDebugColor:Color[] = [ Color.red, Color.green, Color.blue, Color.white, Color.black, Color.yellow, Color.cyan, Color.magenta ];
-	
-	if( Input.GetButtonDown("DebugPrev") )
-	{
-		Debug.Log("Debugging");
-	}
 	
 	while( firstEid < NV ) {
-		// move the first vid cursor to the next unvisited edge
+		// move to the next unvisited edge
 		while( firstEid < NV && edgeVisited[ firstEid ] )
 			firstEid++;
 
@@ -932,19 +1122,24 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 		var pieceFound = false;
 
 		// follow the edge loop from firstEid until we hit the firstEid again
+        // TODO this could be faster - we just need to iterate through the piece numbers, don't need to maintain visited flags
 		while( true ) {
+            if( currEid == -1 )
+                break;
+
 			edgeVisited[currEid] = true;
-			var currStart = edge2verts[ 2*currEid ];
 			var currEnd = edge2verts[ 2*currEid+1 ];
 
 			// find the outgoing edge from the current edge's end with the LARGEST angle
-			var bestEid = -1;
-			var bestAngle = 0.0;
+			var nextEid = -1;
 			var backToFirst = false;
-			// TODO - optimize this with a data struct so we're not doing an N^2 search for the next edge
-			for( var otherEid = 0; otherEid < NE; otherEid++ ) {
+            // TODO this could be faster by building vert->usingedges sets
+			for( var otherEid = 0; otherEid < NE; otherEid++ )
+            {
 				var otherStart = edge2verts[ 2*otherEid ];
-				var otherEnd = edge2verts[ 2*otherEid+1 ];
+
+                if( md.GetEdgePieceId(otherEid) != md.GetEdgePieceId(currEid) )
+                    continue;
 
 				if( otherStart != currEnd )
 					continue;
@@ -959,15 +1154,9 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 				if( edgeVisited[ otherEid ] )
 					continue;
 
-				// this is a next edge candidate
-				// compute CCW angle with curr edge
-				var otherAngle = Math2D.CCWAngle(
-						poly.pts[currEnd], poly.pts[currStart],	// yes, we are intentionally flipping. Draw it out for the CCW winding case
-						poly.pts[otherStart], poly.pts[otherEnd] );
-				if( bestEid == -1 || otherAngle > bestAngle ) {
-					bestEid = otherEid;
-					bestAngle = otherAngle;
-				}
+                // found it
+                nextEid = otherEid;
+                break;
 			}
 
 			if( backToFirst )
@@ -975,54 +1164,20 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 				break;
 
 			// got the next edge
-			Utils.Assert( bestEid != -1, "Could not find a closed edge-loop for starting edge currEid="+currEid );
-			pieceEdges.Add( bestEid );
-			currEid = bestEid;
+			if( !Utils.Assert( nextEid != -1, "Could not find a closed edge-loop for starting edge currEid="+currEid ) )
+            {
+                return;
+            }
+			pieceEdges.Add( nextEid );
+			currEid = nextEid;
 		}
 
-		#if UNITY_EDITOR		
-		if( Input.GetButton("DebugPrev") ) {
-			
-			for( var ie = 0; ie < pieceEdges.Count; ie++ ) {
-			
-				var clr = piecesDebugColor[numPieces % piecesDebugColor.length];
-				
-				eid = pieceEdges[ie];
-				var s = edge2verts[ 2*eid + 0 ];
-				var e = edge2verts[ 2*eid + 1 ];
-				var a = poly.pts[s];
-				var b = poly.pts[e];
-/*				
-				var c = (a+b)/2.0;
-				var margin = 0.1;
-				a = a + (c-a).normalized*margin;
-				b = b + (c-b).normalized*margin;
-				var right = Math2D.PerpCCW((b-a).normalized);
-				a += right*margin;
-				b += right*margin;
-	*/			
-				var labelPt = (a+b)/2.0 + Math2D.PerpCCW((b-a).normalized)*0.2;
-				Debug.DrawLine( a, b, clr, 0 );
-				Debug.DrawLine( labelPt, a, Color.white, 0 );
-				Debug.DrawLine( labelPt, b, Color.white, 0 );
-				DebugText.Add( labelPt, ""+eid );
-			}
-		}
-		#endif
 
 		//----------------------------------------
 		//  Triangulate this piece
 		//----------------------------------------
 		TriangulateMonotonePolygon( sortedVerts, edge2verts, pieceEdges, tris );
-		numPieces++;
 	}
-	
-	#if UNITY_EDITOR
-	if( Input.GetButtonDown("DebugPrev") )
-	{
-		Debug.Log("npieces = "+numPieces);
-	}
-	#endif
 
 	//----------------------------------------
 	//  Finally, transfer to the mesh
