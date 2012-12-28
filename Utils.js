@@ -435,4 +435,5 @@ static function FindAncestorWithComponent( type:System.Type, start:GameObject ) 
 		}
 		obj = parent;
 	}
+	return null;
 }

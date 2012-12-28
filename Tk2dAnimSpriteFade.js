@@ -1,17 +1,16 @@
 #pragma strict
 
-var outColor = new Color(0,0,0,1);
+var outColor = new Color(1,1,1,0);
 var inColor = new Color(1,1,1,1);
 var fadeAmount:FadeAmount = null;
-private var anim : tk2dSprite = null;
+private var sprite : tk2dSprite = null;
 
 function Awake () {
-	anim = GetComponent( tk2dSprite );
-//	origColor = anim.color;
+	sprite = GetComponent( tk2dSprite );
 }
 
 function SetFadeAmount( t:float ) {
-	anim.color = Color.Lerp( outColor, inColor, t );
+	sprite.color = Color.Lerp( outColor, inColor, t );
 }
 
 function Update () {

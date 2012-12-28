@@ -651,6 +651,9 @@ class MonotoneDecomposition
     
 	function GetEdgeEnd( eid:int ) { return poly.pts[ edge2verts[2*eid+1] ]; }
 
+    //----------------------------------------
+    //   TODO - this could be optimized...somehow?
+    //----------------------------------------
 	function FindEdgeAbove( p:Vector2 ) : int
 	{
 		var bestEid = -1;
@@ -1163,11 +1166,9 @@ static function TriangulateSimplePolygon( poly:Mesh2D, mesh:Mesh, isClockwise:bo
 				// done!
 				break;
 
-			// got the next edge
-			if( !Utils.Assert( nextEid != -1, "Could not find a closed edge-loop for starting edge currEid="+currEid ) )
-            {
+			if( !Utils.Assert( nextEid != -1, "Could not find a closed edge-loop for starting edge currEid="+currEid+". Are you sure the polygon is non-self-intersecting?" ) )
                 return;
-            }
+
 			pieceEdges.Add( nextEid );
 			currEid = nextEid;
 		}
