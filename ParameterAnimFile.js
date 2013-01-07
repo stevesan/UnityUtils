@@ -5,6 +5,7 @@ class ParameterAnimation
 	var duration = 1.0;
 	var looping = false;
 	var tweening = "linear";
+    var playOnAwake = false;
 
 	private var startTime:float;
 	private var state:String;
@@ -28,6 +29,14 @@ class ParameterAnimation
 	function Stop() {
 		state = "stopped";
 	}
+
+    function Awake()
+    {
+        if( playOnAwake )
+        {
+            Play();
+        }
+    }
 
 	function Update () {
 		if( state == "playing" ) {

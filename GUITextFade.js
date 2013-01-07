@@ -7,7 +7,7 @@ function Awake () {
 }
 
 function SetFadeAmount( t:float ) {
-	guiText.material.color = t*origColor;
+	guiText.material.color.a = t*origColor.a;
 }
 
 function Update () {
