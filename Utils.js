@@ -40,8 +40,13 @@ static function RandomColor() : Color
 
 static function DebugDrawPlane( n:Vector3, p:Vector3, c:Color )
 {
+    DebugDrawPlane( n, p, c, 0.0 );
+}
+
+static function DebugDrawPlane( n:Vector3, p:Vector3, c:Color, duration:float )
+{
 	// draw normal
-	Debug.DrawLine( p, p+n/4.0, c, 0, false );
+	Debug.DrawLine( p, p+n/4.0, c, duration, false );
 
 	// draw tangent
 	var xcopy = n.x;
@@ -50,9 +55,21 @@ static function DebugDrawPlane( n:Vector3, p:Vector3, c:Color )
 
 	var a = p+n;
 	var b = p-n;
-	Debug.DrawLine( a, b, c, 0, false );
+	Debug.DrawLine( a, b, c, duration, false );
 }
 
+static function DebugDrawCircle( c:Vector3, r:float, color:Color, nsegs:int )
+{
+    var radsPerSeg = 2.0*Mathf.PI / nsegs;
+
+    for( var i = 0; i < nsegs; i++ )
+    {
+        var p1 = Vector3( c.x + Mathf.Cos(radsPerSeg*i)*r, c.y + Mathf.Sin(radsPerSeg*i)*r, c.z );
+        var j = i+1;
+        var p2 = Vector3( c.x + Mathf.Cos(radsPerSeg*j)*r, c.y + Mathf.Sin(radsPerSeg*j)*r, c.z );
+        Debug.DrawLine( p1, p2, color, 0.0, false );
+    }
+}
 
 //----------------------------------------
 //  TODO - there's probably a builtin function I should use instead..?

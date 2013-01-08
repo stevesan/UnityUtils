@@ -6,6 +6,7 @@ class ParameterAnimation
 	var looping = false;
 	var tweening = "linear";
     var playOnAwake = false;
+    var delay = 0.0;
 
 	private var startTime:float;
 	private var state:String;
@@ -40,16 +41,24 @@ class ParameterAnimation
 
 	function Update () {
 		if( state == "playing" ) {
-			fraction = (Time.time-startTime) / duration;
-			if( fraction > 1.0 ) {
-				if( looping ) {
-					fraction = fraction % 1.0;
-				}
-				else {
-					Stop();
-					fraction = 1.0;
-				}
-			}
+            var passed = Time.time - startTime;
+            if( passed > delay )
+            {
+                fraction = (passed-delay) / duration;
+                if( fraction > 1.0 ) {
+                    if( looping ) {
+                        fraction = fraction % 1.0;
+                    }
+                    else {
+                        Stop();
+                        fraction = 1.0;
+                    }
+                }
+            }
+            else
+            {
+                fraction = 0.0;
+            }
 		}
 	}
 }

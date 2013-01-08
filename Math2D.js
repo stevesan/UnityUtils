@@ -28,6 +28,11 @@ static function PerpCCW( v:Vector2 ) : Vector2
 	return Vector2( -v.y, v.x );
 }
 
+static function PerpCCW( v:Vector3 ) : Vector3
+{
+	return Vector3( -v.y, v.x, v.z );
+}
+
 //----------------------------------------
 //  
 //----------------------------------------
