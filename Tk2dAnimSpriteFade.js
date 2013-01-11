@@ -17,12 +17,21 @@ private var sprite : tk2dSprite = null;
 
 var anim = new ParameterAnimation();
 
-function Awake () {
+function Awake ()
+{
 	sprite = GetComponent( tk2dSprite );
 }
 
 function SetFadeAmount( t:float ) {
 	sprite.color = Color.Lerp( outColor, inColor, t );
+
+    // modulate alpha to respect the hierarchy
+    var ah = GetComponent(AlphaHierarchy);
+    if( ah != null )
+    {
+        ah.localAlpha = sprite.color.a;
+        sprite.color.a = ah.EvalGlobalAlpha();
+    }
 }
 
 function Play()
