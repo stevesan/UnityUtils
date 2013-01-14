@@ -8,18 +8,57 @@ class ParameterAnimation
     var playOnAwake = false;
     var delay = 0.0;
 
-	private var startTime:float;
-	private var state:String;
-	private var fraction = 0.0;
+    var debug = false;
 
-	function ParameterAnimation() {
-		state = "stopped";
+	private var passed:float;
+	private var state:String;
+
+	function ParameterAnimation()
+    {
+		state = "idle";
 	}
 
-	function GetFraction() : float { return fraction; }
+    function GetLinearFraction() : float
+    {
+        var x = (Mathf.Max(0.0, passed-delay) / duration);
 
-	function Play() {
-		startTime = Time.time;
+        if( looping )
+        {
+            return x % 1.0;
+        }
+        else
+        {
+            return Mathf.Clamp( x, 0.0, 1.0 );
+        }
+    }
+
+    function SetLinearFraction(value:float)
+    {
+        passed = (value % 1.0)*duration + delay;
+    }
+
+	function GetFraction() : float
+    {
+        var t = GetLinearFraction();
+
+        if( tweening == "sincycle" )
+        {
+            // Map [0,1] to a full sin-cycle, mapped within [0,1]
+            // So 0->0, and 1->0, but 0.5->1.0
+            var rads = (1.0-t)*(-Mathf.PI/2.0) + t*(3.0*Mathf.PI/2.0);
+            var rv = Mathf.Sin(rads)*0.5 + 0.5;
+            Debug.Log(rv);
+            return rv;
+        }
+        else
+        {
+            return t;
+        }
+    }
+
+	function Play()
+    {
+		passed = 0.0;
 		state = "playing";
 	}
 
@@ -27,9 +66,16 @@ class ParameterAnimation
 		return state == "playing";
 	}
 
-	function Stop() {
-		state = "stopped";
+	function Stop()
+    {
+        passed = 0.0;
+		state = "idle";
 	}
+
+    function Pause()
+    {
+        state = "idle";
+    }
 
     function Awake()
     {
@@ -39,26 +85,16 @@ class ParameterAnimation
         }
     }
 
-	function Update () {
-		if( state == "playing" ) {
-            var passed = Time.time - startTime;
-            if( passed > delay )
+	function Update ()
+    {
+		if( state == "playing" )
+        {
+            passed += Time.deltaTime;
+
+            if( (passed-delay) > duration && !looping )
             {
-                fraction = (passed-delay) / duration;
-                if( fraction > 1.0 ) {
-                    if( looping ) {
-                        fraction = fraction % 1.0;
-                    }
-                    else {
-                        Stop();
-                        fraction = 1.0;
-                    }
-                }
+                Pause();
             }
-            else
-            {
-                fraction = 0.0;
-            }
-		}
+        }
 	}
 }

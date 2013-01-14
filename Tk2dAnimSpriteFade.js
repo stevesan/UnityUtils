@@ -15,14 +15,16 @@ var fadeAmount:FadeAmount = null;
 
 private var sprite : tk2dSprite = null;
 
-var anim = new ParameterAnimation();
+var playback = new ParameterAnimation();
 
 function Awake ()
 {
 	sprite = GetComponent( tk2dSprite );
+    playback.Awake();
 }
 
-function SetFadeAmount( t:float ) {
+function SetLocalFade( t:float )
+{
 	sprite.color = Color.Lerp( outColor, inColor, t );
 
     // modulate alpha to respect the hierarchy
@@ -30,32 +32,40 @@ function SetFadeAmount( t:float ) {
     if( ah != null )
     {
         ah.localAlpha = sprite.color.a;
-        sprite.color.a = ah.EvalGlobalAlpha();
+        sprite.color.a = ah.GetGlobalAlpha();
     }
 }
 
 function Play()
 {
-    anim.Play();
+    playback.Play();
 }
 
 function Stop()
 {
-    anim.Stop();
+    playback.Stop();
+}
+
+function OnParentAlphaChanged()
+{
+    if( type == ControlType.Active )
+    {
+        SetLocalFade( playback.GetFraction() );
+    }
 }
 
 function Update () {
     // Always respect the override
 	if( fadeAmount != null )
     {
-		SetFadeAmount(fadeAmount.GetFadeAmount());
+		SetLocalFade(fadeAmount.GetFadeAmount());
 	}
     else
     {
         if( type == ControlType.Active )
         {
-            SetFadeAmount( anim.GetFraction() );
-            anim.Update();
+            SetLocalFade( playback.GetFraction() );
+            playback.Update();
         }
     }
 }

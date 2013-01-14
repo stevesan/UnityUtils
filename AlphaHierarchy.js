@@ -1,29 +1,44 @@
 #pragma strict
 
 var localAlpha = 1.0;
-
 var updateTk2dSprite = false;
 var updateGuiText = false;
 
-function Update ()
-{
-    if( updateTk2dSprite )
-    {
-        GetComponent( tk2dSprite ).color.a = EvalGlobalAlpha();
-    }
-
-    if( updateGuiText && guiText != null )
-    {
-        guiText.material.color.a = EvalGlobalAlpha();
-    }
-}
+private var globalAlpha = 1.0;
 
 function GetLocalAlpha() : float
 {
     return localAlpha;
 }
 
-function EvalGlobalAlpha() : float
+function OnParentAlphaChanged()
+{
+    globalAlpha = EvalGlobalAlpha();
+
+    if( updateTk2dSprite )
+    {
+        GetComponent( tk2dSprite ).color.a = globalAlpha;
+    }
+
+    if( updateGuiText && guiText != null )
+    {
+        guiText.material.color.a = globalAlpha;
+    }
+}
+
+function SetLocalAlpha( value:float )
+{
+    localAlpha = value;
+
+    BroadcastMessage( "OnParentAlphaChanged", SendMessageOptions.DontRequireReceiver );
+}
+
+function GetGlobalAlpha() : float
+{
+    return globalAlpha;
+}
+
+private function EvalGlobalAlpha() : float
 {
     var alpha = localAlpha;
     var ancestor = transform.parent;
