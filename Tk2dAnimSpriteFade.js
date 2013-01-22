@@ -21,9 +21,10 @@ function Awake ()
 {
 	sprite = GetComponent( tk2dSprite );
     playback.Awake();
+    SetLocalFade( 0.0, true );
 }
 
-function SetLocalFade( t:float )
+function SetLocalFade( t:float, broadcast:boolean )
 {
 	sprite.color = Color.Lerp( outColor, inColor, t );
 
@@ -31,7 +32,7 @@ function SetLocalFade( t:float )
     var ah = GetComponent(AlphaHierarchy);
     if( ah != null )
     {
-        ah.localAlpha = sprite.color.a;
+        ah.SetLocalAlpha(sprite.color.a, broadcast);
         sprite.color.a = ah.GetGlobalAlpha();
     }
 }
@@ -39,6 +40,11 @@ function SetLocalFade( t:float )
 function Play()
 {
     playback.Play();
+}
+
+function Unpause()
+{
+    playback.Unpause();
 }
 
 function Stop()
@@ -50,21 +56,22 @@ function OnParentAlphaChanged()
 {
     if( type == ControlType.Active )
     {
-        SetLocalFade( playback.GetFraction() );
+        SetLocalFade( playback.GetFraction(), false );
     }
 }
 
-function Update () {
+function Update()
+{
     // Always respect the override
 	if( fadeAmount != null )
     {
-		SetLocalFade(fadeAmount.GetFadeAmount());
+		SetLocalFade( fadeAmount.GetFadeAmount(), true );
 	}
     else
     {
         if( type == ControlType.Active )
         {
-            SetLocalFade( playback.GetFraction() );
+            SetLocalFade( playback.GetFraction(), true );
             playback.Update();
         }
     }

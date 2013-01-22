@@ -26,11 +26,12 @@ function OnParentAlphaChanged()
     }
 }
 
-function SetLocalAlpha( value:float )
+function SetLocalAlpha( value:float, triggerBroadcast:boolean )
 {
     localAlpha = value;
 
-    BroadcastMessage( "OnParentAlphaChanged", SendMessageOptions.DontRequireReceiver );
+    if( triggerBroadcast )
+        BroadcastMessage( "OnParentAlphaChanged", SendMessageOptions.DontRequireReceiver );
 }
 
 function GetGlobalAlpha() : float

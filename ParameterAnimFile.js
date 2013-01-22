@@ -47,7 +47,6 @@ class ParameterAnimation
             // So 0->0, and 1->0, but 0.5->1.0
             var rads = (1.0-t)*(-Mathf.PI/2.0) + t*(3.0*Mathf.PI/2.0);
             var rv = Mathf.Sin(rads)*0.5 + 0.5;
-            Debug.Log(rv);
             return rv;
         }
         else
@@ -58,11 +57,12 @@ class ParameterAnimation
 
 	function Play()
     {
-		passed = 0.0;
+        passed = 0.0;
 		state = "playing";
 	}
 
-	function IsPlaying() : boolean {
+	function IsPlaying() : boolean
+    {
 		return state == "playing";
 	}
 
@@ -77,8 +77,15 @@ class ParameterAnimation
         state = "idle";
     }
 
+	function Unpause()
+    {
+		state = "playing";
+	}
+
     function Awake()
     {
+        passed = 0.0;
+
         if( playOnAwake )
         {
             Play();
