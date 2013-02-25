@@ -34,7 +34,7 @@ class ParameterAnimation
 
     function SetLinearFraction(value:float)
     {
-        passed = (value % 1.0)*duration + delay;
+        passed = Mathf.Clamp(value, 0.0, 1.0)*duration + delay;
     }
 
 	function GetFraction() : float
@@ -49,6 +49,7 @@ class ParameterAnimation
             var rv = Mathf.Sin(rads)*0.5 + 0.5;
             return rv;
         }
+        // TODO other tweeners here
         else
         {
             return t;

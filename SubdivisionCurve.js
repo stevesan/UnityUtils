@@ -22,9 +22,19 @@ var debugDrawNumSegs = 50;
 private var samples = new List.<Vector3>();
 private var sampleLengths = new List.<float>();
 private var totalLen = 0.0;
+private var state = "uninit";
 
 function Awake()
 {
+}
+
+private function GenSamplePointsIdem()
+{
+    if( state == "ready" )
+        return;
+
+    state = "ready";
+
     //----------------------------------------
     //  Gather control points
     //----------------------------------------
@@ -80,6 +90,8 @@ function Awake()
 //----------------------------------------
 function GetSmoothedPoint( t:float ) : Vector3
 {
+    GenSamplePointsIdem();
+
     var padAmount = smoothingDistance/totalLen;
     t = (1-t)*padAmount + t*(1-padAmount);
 

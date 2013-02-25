@@ -3,8 +3,16 @@
 var localAlpha = 1.0;
 var updateTk2dSprite = false;
 var updateGuiText = false;
+var updateLightIntensity = false;
 
-private var globalAlpha = 1.0;
+private var globalAlphaCache = 1.0;
+private var origLightIntensity = 1.0;
+
+function Awake()
+{
+    if( updateLightIntensity && light )
+        origLightIntensity = light.intensity;
+}
 
 function GetLocalAlpha() : float
 {
@@ -13,17 +21,20 @@ function GetLocalAlpha() : float
 
 function OnParentAlphaChanged()
 {
-    globalAlpha = EvalGlobalAlpha();
+    globalAlphaCache = EvalGlobalAlpha();
 
     if( updateTk2dSprite )
     {
-        GetComponent( tk2dSprite ).color.a = globalAlpha;
+        GetComponent( tk2dSprite ).color.a = globalAlphaCache;
     }
 
     if( updateGuiText && guiText != null )
     {
-        guiText.material.color.a = globalAlpha;
+        guiText.material.color.a = globalAlphaCache;
     }
+
+    if( updateLightIntensity && light )
+        light.intensity = globalAlphaCache * origLightIntensity;
 }
 
 function SetLocalAlpha( value:float, triggerBroadcast:boolean )
@@ -36,7 +47,7 @@ function SetLocalAlpha( value:float, triggerBroadcast:boolean )
 
 function GetGlobalAlpha() : float
 {
-    return globalAlpha;
+    return globalAlphaCache;
 }
 
 private function EvalGlobalAlpha() : float

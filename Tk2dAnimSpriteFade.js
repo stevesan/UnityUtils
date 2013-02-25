@@ -52,6 +52,12 @@ function Stop()
     playback.Stop();
 }
 
+function SkipToEnd()
+{
+    playback.Pause();
+    playback.SetLinearFraction(1.0);
+}
+
 function OnParentAlphaChanged()
 {
     if( type == ControlType.Active )
@@ -63,6 +69,7 @@ function OnParentAlphaChanged()
 function Update()
 {
     // Always respect the override
+    // TODO I should stop using this. Use the AlphaHierarchy instead.
 	if( fadeAmount != null )
     {
 		SetLocalFade( fadeAmount.GetFadeAmount(), true );
