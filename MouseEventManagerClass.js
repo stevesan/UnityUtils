@@ -8,7 +8,7 @@ class MouseEventManager
     interface Listener
     {
         // The renderer's bounds will be used to determine mouse-collision
-        function GetRenderer() : Renderer;
+        function GetBounds() : Bounds;
         function OnMouseEnter() : void;
         function OnMouseExit() : void;
     };
@@ -51,12 +51,10 @@ class MouseEventManager
             if( target == null )
                 continue;
 
-            var renderComp = target.GetRenderer();
-            if( renderComp == null )
-                continue;
+            var bounds = target.GetBounds();
 
-            var testPt = Vector3( wsMousePos.x, wsMousePos.y, renderComp.bounds.center.z );
-            if( renderComp.bounds.Contains(testPt) )
+            var testPt = Vector3( wsMousePos.x, wsMousePos.y, bounds.center.z );
+            if( bounds.Contains(testPt) )
             {
                 currTargetId = i;
                 break;
