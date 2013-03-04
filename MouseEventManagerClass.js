@@ -13,6 +13,25 @@ class MouseEventManager
         function OnMouseExit() : void;
     };
 
+    // The simplest kind
+    class RendererListener implements Listener
+    {
+        var renderer:Renderer;
+
+        function RendererListener(_renderer)
+        {
+            this.renderer = _renderer;
+        }
+
+        function GetBounds() : Bounds
+        {
+            if( renderer != null )
+                return renderer.bounds;
+        }
+        function OnMouseEnter() : void {}
+        function OnMouseExit() : void {}
+    };
+
     var enterMessage = "OnMouseEnter";
     var exitMessage = "OnMouseExit";
 
