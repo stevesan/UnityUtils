@@ -1004,10 +1004,10 @@ class MonotoneDecomposition
                 Debug.DrawLine( labelPt, a, clr, 0 );
                 Debug.DrawLine( labelPt, b, clr, 0 );
                 //DebugText.Add( labelPt, ""+eid+"/"+GetEdgePieceId(eid) );
-                DebugText.Add( labelPt, ""+pieceId );
+                //DebugText.Add( labelPt, ""+pieceId );
 
-                DebugText.Add( a, GetVertexType(svid) );
-                DebugText.Add( b, GetVertexType(evid) );
+                //DebugText.Add( a, GetVertexType(svid) );
+                //DebugText.Add( b, GetVertexType(evid) );
             }
         }
     }

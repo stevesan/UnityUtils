@@ -24,6 +24,12 @@ private var sampleLengths = new List.<float>();
 private var totalLen = 0.0;
 private var state = "uninit";
 
+function GetTotalLength() : float
+{
+	GenSamplePointsIdem();
+	return totalLen;
+}
+
 function Awake()
 {
 }
