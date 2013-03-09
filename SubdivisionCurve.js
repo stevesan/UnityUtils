@@ -21,20 +21,21 @@ var debugDrawNumSegs = 50;
 
 private var samples = new List.<Vector3>();
 private var sampleLengths = new List.<float>();
-private var totalLen = 0.0;
+private var totalControlLength = 0.0;
+private var totalSmoothedLength = 0.0;
 private var state = "uninit";
 
 function GetTotalLength() : float
 {
-	GenSamplePointsIdem();
-	return totalLen;
+	InitializeIdem();
+	return totalSmoothedLength;
 }
 
 function Awake()
 {
 }
 
-private function GenSamplePointsIdem()
+private function InitializeIdem()
 {
     if( state == "ready" )
         return;
@@ -65,7 +66,7 @@ private function GenSamplePointsIdem()
     //  Generate equidistant sample points
     //----------------------------------------
 
-    totalLen = 0.0;
+    totalControlLength = 0.0;
     var remainLen = 0.0;
     var lenPerSample = 1.0/samplesPerUnit;
 
@@ -82,26 +83,47 @@ private function GenSamplePointsIdem()
         {
             var sp = p1 + dir*usedLen;
             samples.Add(sp);
-            sampleLengths.Add(usedLen + totalLen);
+            sampleLengths.Add(usedLen + totalControlLength);
         }
 
         remainLen = length - usedLen + lenPerSample;
-        totalLen += length;
+        totalControlLength += length;
     }
+
+	totalSmoothedLength = ComputeSmoothedLength();
+}
+
+private function ComputeSmoothedLength() : float
+{
+	// To get the actual length of the smoothed curve, sample the curve finely and
+	// add up distances
+	var dt = 0.01;
+	var totalDist = 0.0;
+	var prevPt = GetSmoothedPoint(0.0);
+
+	for( var t = dt; t <= 1.0; t += dt )
+	{
+		var pt = GetSmoothedPoint(t);
+		totalDist += Vector3.Distance( prevPt, pt );
+		prevPt = pt;
+	}
+
+	return totalDist;
 }
 
 //----------------------------------------
 //  t in [0,1]
 //  This makes no guarantees really about where t=0 and t=1 are relative to the control points.. heh
+//	TODO - relationship between dt and dist(p(t), p(t+dt)) is not linear.. this sucks.
 //----------------------------------------
 function GetSmoothedPoint( t:float ) : Vector3
 {
-    GenSamplePointsIdem();
+    InitializeIdem();
 
-    var padAmount = smoothingDistance/totalLen;
+    var padAmount = smoothingDistance/totalControlLength;
     t = (1-t)*padAmount + t*(1-padAmount);
 
-    var tLen = t*totalLen;
+    var tLen = t*totalControlLength;
     var tLow = tLen - smoothingDistance;
     var tHigh = tLen + smoothingDistance;
 
