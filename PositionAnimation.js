@@ -5,6 +5,7 @@ var offset : Vector3;
 var decayPow = 2.0;
 var numCycles = 2.0;
 var doDecay = true;
+var passive = false;
 private var origPosition:Vector3;
 
 function Awake()
@@ -27,18 +28,24 @@ function Stop()
     anim.Stop();
 }
 
+function GetCurrentOffset()
+{
+    var t = anim.GetFraction();
+
+    var sinFactor = Mathf.Sin( 2.0*Mathf.PI*numCycles*t );
+    var decayFactor = 1 - Mathf.Pow(t, decayPow);
+    if( !doDecay )
+        decayFactor = 1.0;
+
+    return sinFactor*offset*decayFactor;
+}
+
 function Update ()
 {
 	anim.Update();
 
-	if( anim.IsPlaying() )
+	if( anim.IsPlaying() && !passive)
     {
-		var t = anim.GetFraction();
-
-		var sinFactor = Mathf.Sin( 2.0*Mathf.PI*numCycles*t );
-		var decayFactor = 1 - Mathf.Pow(t, decayPow);
-		if( !doDecay )
-			decayFactor = 1.0;
-		transform.localPosition = origPosition + sinFactor*offset*decayFactor;
+		transform.localPosition = origPosition + GetCurrentOffset();
 	}
 }

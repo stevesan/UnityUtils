@@ -11,6 +11,7 @@ class MouseEventManager
         function GetBounds() : Bounds;
         function OnMouseEnter() : void;
         function OnMouseExit() : void;
+        function GetSpace() : String;
     };
 
     // The simplest kind
@@ -23,6 +24,8 @@ class MouseEventManager
             this.renderer = _renderer;
         }
 
+        function GetSpace() { return "world"; }
+
         function GetBounds() : Bounds
         {
             if( renderer != null )
@@ -31,6 +34,30 @@ class MouseEventManager
         function OnMouseEnter() : void {}
         function OnMouseExit() : void {}
     };
+
+	class GUITextListener implements Listener
+	{
+		var text: GUIText;
+
+		function GUITextListener(_text)
+		{
+			this.text = _text;
+		}
+
+        function GetSpace() { return "screen"; }
+
+		function GetBounds() : Bounds
+		{
+			var rect = this.text.GetScreenRect();
+			var bounds = new Bounds();
+            bounds.min = Vector3(rect.xMin, rect.yMin, -1);
+            bounds.max = Vector3(rect.xMax, rect.yMax, 1);
+            return bounds;
+		}
+
+		function OnMouseEnter() : void {}
+		function OnMouseExit() : void {}
+	}
 
     var enterMessage = "OnMouseEnter";
     var exitMessage = "OnMouseExit";
@@ -72,8 +99,13 @@ class MouseEventManager
 
             var bounds = target.GetBounds();
 
-            var testPt = Vector3( wsMousePos.x, wsMousePos.y, bounds.center.z );
-            if( bounds.Contains(testPt) )
+            var wsTestPt = Vector3( wsMousePos.x, wsMousePos.y, bounds.center.z );
+            var ssTestPt = Vector3( Input.mousePosition.x, Input.mousePosition.y, bounds.center.z );
+
+            if( (target.GetSpace() == "world" && bounds.Contains(wsTestPt))
+                    ||
+                    (target.GetSpace() == "screen" && bounds.Contains(ssTestPt))
+              )
             {
                 currTargetId = i;
                 break;
