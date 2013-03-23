@@ -9,9 +9,12 @@ class MouseEventManager
     {
         // The renderer's bounds will be used to determine mouse-collision
         function GetBounds() : Bounds;
+        // The coordinate space of the bounds - ie. "world" or "screen"
+        function GetSpace() : String;
         function OnMouseEnter() : void;
         function OnMouseExit() : void;
-        function GetSpace() : String;
+
+        // TODO should add OnMouseLeftClick here..
     };
 
     // The simplest kind
@@ -126,6 +129,20 @@ class MouseEventManager
                 prevTarget.OnMouseExit();
 
             prevTarget = currTarget;
+        }
+    }
+
+    function SetActive(active:boolean)
+    {
+        if( active )
+        {
+        }
+        else
+        {
+            if( currTarget != null )
+                currTarget.OnMouseExit();
+            currTarget = null;
+            prevTarget = null;
         }
     }
 }
