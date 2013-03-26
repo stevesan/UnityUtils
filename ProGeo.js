@@ -35,6 +35,14 @@ class MeshBuffer
 		to.normals = normals;
 		to.triangles = triangles;
 	}
+
+    function SetAllNormals(n:Vector3)
+    {
+        for( var i = 0; i < normals.length; i++ )
+        {
+            normals[i] = n;
+        }
+    }
 }
 
 //----------------------------------------
@@ -72,7 +80,8 @@ static function Stroke2D(
 	}
 
 	// first ctrl
-	if( !isLoop ) {
+	if( !isLoop )
+    {
 		var a = ctrlPts[firstCtrl];
 		var b = ctrlPts[firstCtrl+1];
 		var e0 = b-a;
@@ -93,25 +102,28 @@ static function Stroke2D(
 		e0 = p1-p0;
 		var e1 = p2-p1;
 
-		var e0n = e0.normalized;
-		var e1n = e1.normalized;
-		var theta0 = Mathf.Atan2( e0n.y, e0n.x );
-		var theta1 = Mathf.Atan2( e1n.y, e1n.x );
+        var n0 = Math2D.PerpCCW(e0.normalized);
+        var n1 = Math2D.PerpCCW(e1.normalized);
+        var theta = Mathf.Acos(Vector2.Dot(n0,n1)) * 0.5;
+        var cosTheta = Mathf.Cos(theta);
+        var diagLen = radius;
+        var diagDir = ((n0+n1) * 0.5).normalized;
 
-		// make sure we're getting the positive CCW angle from e0 to e1
-		if( theta1 < theta0 )
-			theta1 += 2*Mathf.PI;
+        if( cosTheta >= 1e-7 )
+        {
+            diagLen = radius / cosTheta;
+        }
 
-		var dtheta = theta1 - theta0;
-		var alpha = radius * Mathf.Tan( dtheta/2.0 );
+        var vi0 = firstVert + 2*i + 0;
+        var vi1 = firstVert + 2*i + 1;
+		mesh.vertices[ vi0 ] = p1 + diagDir*diagLen;
+		mesh.vertices[ vi1 ] = p1 - diagDir*diagLen;
 
-		n = Math2D.PerpCCW( e0 ).normalized;
-		mesh.vertices[ firstVert+2*i+0 ] = p1+radius*n - alpha*e0n;
-		mesh.vertices[ firstVert+2*i+1 ] = p1-radius*n + alpha*e0n;
+        // FIXME: there's a bug with UVs.. the first seg gets a full 0-1
 
-		v = ctrlPtTexVs[ i ];
-		mesh.uv[ firstVert+2*i+0 ] = Vector2( 0, v );
-		mesh.uv[ firstVert+2*i+1 ] = Vector2( 1, v );
+		v = ctrlPtTexVs[ i % nctrls ];
+		mesh.uv[ vi0 ] = Vector2( 0, v );
+		mesh.uv[ vi1 ] = Vector2( 1, v );
 	}
 
 	// last one
@@ -139,9 +151,21 @@ static function Stroke2D(
 		mesh.triangles[ 3*firstTri + 6*i + 3 ] = firstVert + 2 * i + 1;
 		mesh.triangles[ 3*firstTri + 6*i + 4 ] = firstVert + 2 * i + 2;
 		mesh.triangles[ 3*firstTri + 6*i + 5 ] = firstVert + 2 * i + 3;
+/*
+        DebugTriangle(
+                mesh.vertices[ firstVert + 2 * i + 0 ],
+                mesh.vertices[ firstVert + 2 * i + 2 ],
+                mesh.vertices[ firstVert + 2 * i + 1 ], Color.red);
+
+        DebugTriangle(
+                mesh.vertices[ firstVert + 2 * i + 1 ],
+                mesh.vertices[ firstVert + 2 * i + 2 ],
+                mesh.vertices[ firstVert + 2 * i + 3 ], Color.blue);
+*/
 	}
 
-	if( isLoop ) {
+	if( isLoop )
+    {
 		i = nctrls-1;
 		mesh.triangles[ 3*firstTri + 6*i + 0 ] = firstVert + 2 * i + 0;
 		mesh.triangles[ 3*firstTri + 6*i + 1 ] = firstVert + 2 * 0 + 0;
@@ -152,6 +176,13 @@ static function Stroke2D(
 		mesh.triangles[ 3*firstTri + 6*i + 5 ] = firstVert + 2 * 0 + 1;
 	}
 
+}
+
+static function DebugTriangle( p0:Vector3, p1:Vector3, p2:Vector3, c:Color )
+{
+    Debug.DrawLine(p0, p1, c);
+    Debug.DrawLine(p1, p2, c);
+    Debug.DrawLine(p2, p0, c);
 }
 
 //----------------------------------------
