@@ -4,6 +4,7 @@ var localAlpha = 1.0;
 var updateTk2dSprite = false;
 var updateGuiText = false;
 var updateLightIntensity = false;
+var updateMaterialColor = false;
 
 private var globalAlphaCache = 1.0;
 private var origLightIntensity = 1.0;
@@ -24,17 +25,21 @@ function OnParentAlphaChanged()
     globalAlphaCache = EvalGlobalAlpha();
 
     if( updateTk2dSprite )
-    {
         GetComponent( tk2dSprite ).color.a = globalAlphaCache;
-    }
 
     if( updateGuiText && guiText != null )
-    {
         guiText.material.color.a = globalAlphaCache;
-    }
 
     if( updateLightIntensity && light )
         light.intensity = globalAlphaCache * origLightIntensity;
+
+	if( updateMaterialColor )
+	{
+		var c = renderer.material.GetColor("_Color");
+		c.a = globalAlphaCache;
+		renderer.material.SetColor("_Color", c);
+	}
+		
 }
 
 function SetLocalAlpha( value:float, triggerBroadcast:boolean )

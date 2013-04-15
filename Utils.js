@@ -454,3 +454,76 @@ static function FindAncestorWithComponent( type:System.Type, start:GameObject ) 
 	}
 	return null;
 }
+
+//----------------------------------------
+//  
+//----------------------------------------
+class CodeAnimation
+{
+	function CodeAnimation()
+	{
+	}
+
+	var currStep = -1;
+	var currStepStart = 0.0;
+	var currStepDuration = 0.0;
+
+	function Play()
+	{
+		currStepStart = Time.time;
+		currStep = 0;
+	}
+
+	protected function CheckStep( stepNum:int, duration:float ) : boolean
+	{
+		if( currStep == stepNum )
+		{
+			// Use LTE here to allow for single-frame steps (duration == 0.0)
+			if( (Time.time - currStepStart) <= duration )
+			{
+				currStepDuration = duration;
+				return true;
+			}
+			else
+			{
+				// this step is over. starting next step
+				currStep++;
+				currStepStart = Time.time;
+				// An else-if after the caller should handle it
+				return false;
+			}
+		}
+
+		return false;
+	}
+
+	protected function GetStepElapsed() { return Time.time - currStepStart; }
+	protected function GetStepFraction() { return GetStepElapsed() / currStepDuration; }
+	protected function JustStartedStep()
+	{
+		return GetStepElapsed() == 0.0;
+	}
+
+	//----------------------------------------
+	//  Example update function, doing a simple count-down animation.
+	//	Notice the strict, ordered structure of the (else)-if conditionals
+	//----------------------------------------
+	function Update()
+	{
+		var step = 0;
+
+		if( CheckStep(step++, 1.0) )
+			Debug.Log("3..");
+		else if( CheckStep(step++, 1.0) )
+			Debug.Log("2..");
+		else if( CheckStep(step++, 1.0) )
+			Debug.Log("1..");
+		else if( CheckStep(step++, 0.0) )
+			Debug.Log("BLAST OFF!");
+		else
+			return false;
+
+		return true;
+	}
+
+}
