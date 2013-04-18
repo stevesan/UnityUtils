@@ -527,3 +527,56 @@ class CodeAnimation
 	}
 
 }
+
+//----------------------------------------
+//  If you have a value that smoothly changes towards a goal over time, but that goal changes a lot.
+//----------------------------------------
+class SlidingValue
+{
+    private var value:float;
+    private var goal:float;
+    private var speed:float;
+    private var isSliding:boolean;
+
+    function SlidingValue()
+    {
+        isSliding = false;
+    }
+
+    function Get() { return value; }
+
+    function Set(_value:float) { value = _value; }
+
+    function SetSpeed(_speed:float) { speed = _speed; }
+
+    function GetIsSliding() { return isSliding; }
+
+    function SlideTo(_goal:float)
+    {
+        goal = _goal;
+        isSliding = true;
+
+        speed = Mathf.Abs(speed) * Mathf.Sign(goal - value);
+    }
+
+    function SlideTo(_goal:float, takeTime:float)
+    {
+        SetSpeed( (_goal - value) / takeTime );
+        SlideTo(_goal);
+    }
+
+    function Update(dt:float)
+    {
+        if( isSliding )
+        {
+            var prevValue = value;
+            value += speed * dt;
+
+            if( Mathf.Sign(prevValue-goal) != Mathf.Sign(value-goal) )
+            {
+                value = goal;
+                isSliding = false;
+            }
+        }
+    }
+}
