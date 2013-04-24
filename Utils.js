@@ -435,10 +435,6 @@ static function PseudoNormalRandom( mean:float, stdev:float )
 }
 
 //----------------------------------------
-//  IO stuff
-//----------------------------------------
-
-//----------------------------------------
 //  Goes up the ancestor tree until we find something with the component
 //----------------------------------------
 
@@ -458,37 +454,47 @@ static function FindAncestorWithComponent( type:System.Type, start:GameObject ) 
 //----------------------------------------
 //  
 //----------------------------------------
-class CodeAnimation
+class SlicedAnimation
 {
-	function CodeAnimation()
+	private var currSlice = -1;
+	private var currSliceStart = 0.0;
+	private var currSliceDuration = 0.0;
+
+	// Per-frame state
+	private var currCheckSlice = -1;
+
+	function SlicedAnimation()
 	{
 	}
 
-	var currStep = -1;
-	var currStepStart = 0.0;
-	var currStepDuration = 0.0;
+	function Reset()
+	{
+		currSlice = -1;
+	}
 
 	function Play()
 	{
-		currStepStart = Time.time;
-		currStep = 0;
+		currSliceStart = Time.time;
+		currSlice = 0;
 	}
 
-	protected function CheckStep( stepNum:int, duration:float ) : boolean
+	// TODO Pause/Resume functionality?
+
+	function CheckSlice( duration:float ) : boolean
 	{
-		if( currStep == stepNum )
+		if( currSlice == (currCheckSlice++) )
 		{
 			// Use LTE here to allow for single-frame steps (duration == 0.0)
-			if( (Time.time - currStepStart) <= duration )
+			if( (Time.time - currSliceStart) <= duration )
 			{
-				currStepDuration = duration;
+				currSliceDuration = duration;
 				return true;
 			}
 			else
 			{
 				// this step is over. starting next step
-				currStep++;
-				currStepStart = Time.time;
+				currSlice++;
+				currSliceStart = Time.time;
 				// An else-if after the caller should handle it
 				return false;
 			}
@@ -497,33 +503,39 @@ class CodeAnimation
 		return false;
 	}
 
-	protected function GetStepElapsed() { return Time.time - currStepStart; }
-	protected function GetStepFraction() { return GetStepElapsed() / currStepDuration; }
-	protected function JustStartedStep()
+	//----------------------------------------
+	//  Functions about the current slice
+	//----------------------------------------
+	function GetSliceElapsed() { return Time.time - currSliceStart; }
+	function GetSliceFraction() { return GetSliceElapsed() / currSliceDuration; }
+	function JustStartedSlice() { return GetSliceElapsed() == 0.0; }
+
+	function BeginUpdate()
 	{
-		return GetStepElapsed() == 0.0;
+		currCheckSlice = 0;
 	}
+
+	function EndUpdate() { }
 
 	//----------------------------------------
 	//  Example update function, doing a simple count-down animation.
 	//	Notice the strict, ordered structure of the (else)-if conditionals
+	//	OR you could choose to not call Update at all and just put this same code in an existing Update(). All functions are public.
 	//----------------------------------------
 	function Update()
 	{
-		var step = 0;
+		BeginUpdate();
 
-		if( CheckStep(step++, 1.0) )
+		if( CheckSlice(1.0) )
 			Debug.Log("3..");
-		else if( CheckStep(step++, 1.0) )
+		else if( CheckSlice(1.0) )
 			Debug.Log("2..");
-		else if( CheckStep(step++, 1.0) )
+		else if( CheckSlice(1.0) )
 			Debug.Log("1..");
-		else if( CheckStep(step++, 0.0) )
+		else if( CheckSlice(0.0) )
 			Debug.Log("BLAST OFF!");
-		else
-			return false;
 
-		return true;
+		EndUpdate();
 	}
 
 }
