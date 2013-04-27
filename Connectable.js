@@ -15,6 +15,8 @@ class Connection
 }
 var connections:Connection[];
 
+private var dynamicConnections = new List.<Connection>();
+
 function TriggerEvent( event:String )
 {
     for( con in connections )
@@ -22,4 +24,24 @@ function TriggerEvent( event:String )
         if( con.target != null && con.event == event )
             con.target.SendMessage(con.message, this.gameObject);
     }
+
+    for( con in dynamicConnections )
+    {
+        if( con.target != null && con.event == event )
+            con.target.SendMessage(con.message, this.gameObject);
+    }
+}
+
+function AddListener(target:GameObject, event:String, message:String)
+{
+    var c = new Connection();
+    c.target = target;
+    c.event = event;
+    c.message = message;
+    dynamicConnections.Add(c);
+}
+
+function AddListener( target:GameObject, eventAndMsg:String )
+{
+    AddListener( target, eventAndMsg, eventAndMsg );
 }

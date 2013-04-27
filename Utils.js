@@ -580,7 +580,8 @@ class SlidingValue
         goal = _goal;
         isSliding = true;
 
-        speed = Mathf.Abs(speed) * Mathf.Sign(goal - value);
+        if( Mathf.Abs(goal-value) > 0 )
+            speed = Mathf.Abs(speed) * Mathf.Sign(goal - value);
     }
 
     function SlideTo(_goal:float, takeTime:float)
