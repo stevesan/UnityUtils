@@ -1,20 +1,41 @@
 #pragma strict
 
-var shaking = true;
-var shakeScale = Vector3(1,1,1);
+//----------------------------------------
+//  
+//----------------------------------------
+var shakeMax = Vector3(1,1,1);
+var playback = new ParameterAnimation();
 
-private var origPos : Vector3;
+//----------------------------------------
+//  
+//----------------------------------------
+private var posOnPlay : Vector3;
 
-function Start () {
-	origPos = transform.position;
+function Awake()
+{
+    playback.Awake();
+	posOnPlay = transform.localPosition;
 }
 
-function Update () {
+function Start()
+{
+}
 
-	if( shaking )
-	{
-		transform.position = origPos +
-			Vector3.Scale( Random.insideUnitSphere, shakeScale );
-	}
+function Play()
+{
+	posOnPlay = transform.localPosition;
+    playback.Play();
+}
+
+function Update()
+{
+    playback.Update();
+
+    if( playback.IsPlaying() )
+    {
+        var f = playback.GetFraction();
+        var delta =	Vector3.Scale( Random.insideUnitSphere, shakeMax );
+        transform.localPosition = posOnPlay + (1-f)*delta;
+    }
 
 }
