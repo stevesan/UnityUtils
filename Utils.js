@@ -459,6 +459,7 @@ class SlicedAnimation
 	private var currSlice = -1;
 	private var currSliceStart = 0.0;
 	private var currSliceDuration = 0.0;
+    private var justStartedQueryDone = false;
 
 	// Per-frame state
 	private var currCheckSlice = -1;
@@ -476,6 +477,7 @@ class SlicedAnimation
 	{
 		currSliceStart = Time.time;
 		currSlice = 0;
+        justStartedQueryDone = false;
 	}
 
 	// TODO Pause/Resume functionality?
@@ -494,7 +496,8 @@ class SlicedAnimation
 			{
 				// this step is over. starting next step
 				currSlice++;
-				currSliceStart = Time.time;
+				currSliceStart = Time.time - (Time.time-currSliceStart-duration);
+                justStartedQueryDone = false;
 				// An else-if after the caller should handle it
 				return false;
 			}
@@ -508,7 +511,16 @@ class SlicedAnimation
 	//----------------------------------------
 	function GetSliceElapsed() { return Time.time - currSliceStart; }
 	function GetSliceFraction() { return GetSliceElapsed() / currSliceDuration; }
-	function JustStartedSlice() { return GetSliceElapsed() == 0.0; }
+
+	function JustStartedSlice()
+    { 
+        if( !justStartedQueryDone )
+        {
+            justStartedQueryDone = true;
+            return true;
+        }
+        return false;
+    }
 
 	function BeginUpdate()
 	{
