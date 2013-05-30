@@ -468,7 +468,7 @@ class SlicedAnimation
 	{
 	}
 
-	function Reset()
+	function Stop()
 	{
 		currSlice = -1;
 	}
@@ -578,10 +578,15 @@ class SlidingValue
     function SlideTo(_goal:float)
     {
         goal = _goal;
-        isSliding = true;
 
-        if( Mathf.Abs(goal-value) > 0 )
-            speed = Mathf.Abs(speed) * Mathf.Sign(goal - value);
+		if( goal == value )
+		{
+			isSliding = false;
+			return;
+		}
+
+        isSliding = true;
+		speed = Mathf.Abs(speed) * Mathf.Sign(goal - value);
     }
 
     function SlideTo(_goal:float, takeTime:float)
@@ -597,7 +602,7 @@ class SlidingValue
             var prevValue = value;
             value += speed * dt;
 
-            if( Mathf.Sign(prevValue-goal) != Mathf.Sign(value-goal) )
+            if( goal == value || Mathf.Sign(prevValue-goal) != Mathf.Sign(value-goal) )
             {
                 value = goal;
                 isSliding = false;

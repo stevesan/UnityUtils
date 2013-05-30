@@ -21,7 +21,12 @@ function Awake ()
 {
 	sprite = GetComponent( tk2dSprite );
     playback.Awake();
-    SetLocalFade( 0.0, true );
+}
+
+function Start()
+{
+	// Avoid 1-frame of bad alpha value when created
+	Update();
 }
 
 function SetLocalFade( t:float, broadcast:boolean )
