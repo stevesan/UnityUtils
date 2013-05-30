@@ -605,3 +605,17 @@ class SlidingValue
         }
     }
 }
+
+//----------------------------------------
+//  
+//----------------------------------------
+static function WorldToGUIPoint( worldPt )
+{
+    var screenPos = Camera.main.WorldToScreenPoint( worldPt );
+    var guiPos = Vector3(0,0,0);
+    guiPos.x = screenPos.x / Screen.width;
+    guiPos.y = screenPos.y / Screen.height;
+
+    Debug.Log(worldPt + "-->" + guiPos);
+    return guiPos;
+}
