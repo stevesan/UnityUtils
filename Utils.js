@@ -622,3 +622,22 @@ static function WorldToGUIPoint( worldPt )
     guiPos.y = screenPos.y / Screen.height;
     return guiPos;
 }
+
+//----------------------------------------
+//  A common pattern I use
+//----------------------------------------
+static function SpawnFromPrefab( prefab:GameObject, parent:Transform )
+{
+    var go = Instantiate( prefab, prefab.transform.position, prefab.transform.rotation );
+    go.transform.parent = parent;
+
+    go.SetActive(true);
+    prefab.SetActive(false);
+
+    return go;
+}
+
+static function SpawnFromPrefab( prefab:GameObject )
+{
+    return SpawnFromPrefab( prefab, null );
+}
