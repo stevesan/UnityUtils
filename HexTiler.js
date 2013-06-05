@@ -4,8 +4,8 @@ import SteveSharp;
 
 var prefab:GameObject;
 var upRightOffset = Vector3(0.75, 0.5, 0);
-var numCols = 10;
-var numRows = 10;
+var initCols = 10;
+var initRows = 10;
 
 private var tiles = new Grid.<GameObject>();
 
@@ -20,6 +20,8 @@ function GetGlobalPosition( i:int, j:int )
 {
     return transform.TransformPoint( GetLocalOffset(i, j) );
 }
+
+function GetTiles() { return tiles; }
 
 //----------------------------------------
 //  Maps 0-5 (num) to nbors around the given hex. 0 is the top
@@ -54,8 +56,19 @@ public static function GetNbor( i:int, j:int, num:int ) : Int2
     }
 }
 
-function Start ()
+function Clear()
 {
+    for( var i = 0; i < tiles.numRows; i++ )
+        for( var j = 0; j < tiles.numCols; j++ )
+            Destroy(tiles.Get(i,j));
+
+    tiles.Clear();
+}
+
+function Reset( numRows:int, numCols:int )
+{
+    Clear();
+
     // Create dat grid!
     tiles.Resize( numRows, numCols, null );
 
@@ -70,8 +83,11 @@ function Start ()
             tiles.Set( i, j, inst );
         }
     }
+}
 
-    prefab.SetActive(false);
+function Start()
+{
+    Reset( initRows, initCols );
 }
 
 function Update ()
