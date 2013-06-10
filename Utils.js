@@ -610,3 +610,34 @@ class SlidingValue
         }
     }
 }
+
+//----------------------------------------
+//  
+//----------------------------------------
+static function WorldToGUIPoint( worldPt )
+{
+    var screenPos = Camera.main.WorldToScreenPoint( worldPt );
+    var guiPos = Vector3(0,0,0);
+    guiPos.x = screenPos.x / Screen.width;
+    guiPos.y = screenPos.y / Screen.height;
+    return guiPos;
+}
+
+//----------------------------------------
+//  A common pattern I use
+//----------------------------------------
+static function SpawnFromPrefab( prefab:GameObject, parent:Transform )
+{
+    var go = Instantiate( prefab, prefab.transform.position, prefab.transform.rotation );
+    go.transform.parent = parent;
+
+    go.SetActive(true);
+    prefab.SetActive(false);
+
+    return go;
+}
+
+static function SpawnFromPrefab( prefab:GameObject )
+{
+    return SpawnFromPrefab( prefab, null );
+}
