@@ -557,9 +557,10 @@ class SlicedAnimation
 //----------------------------------------
 class SlidingValue
 {
+    public var speed:float;
+
     private var value:float;
     private var goal:float;
-    private var speed:float;
     private var isSliding:boolean;
 
     function SlidingValue()
@@ -640,4 +641,9 @@ static function SpawnFromPrefab( prefab:GameObject, parent:Transform )
 static function SpawnFromPrefab( prefab:GameObject )
 {
     return SpawnFromPrefab( prefab, null );
+}
+
+static function Connect( listener:MonoBehaviour, obj:MonoBehaviour, msg:String )
+{
+    obj.gameObject.GetComponent(Connectable).AddListener( listener.gameObject, msg );
 }

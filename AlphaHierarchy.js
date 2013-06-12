@@ -5,14 +5,18 @@ var updateTk2dSprite = false;
 var updateGuiText = false;
 var updateLightIntensity = false;
 var updateMaterialColor = false;
+var updateGuiTexture = false;
 
 private var globalAlphaCache = 1.0;
 private var origLightIntensity = 1.0;
 
 function Awake()
 {
+    /* TEMP TEMP
+
     if( updateLightIntensity && light )
         origLightIntensity = light.intensity;
+        */
 }
 
 function GetLocalAlpha() : float
@@ -24,6 +28,8 @@ function OnParentAlphaChanged()
 {
     globalAlphaCache = EvalGlobalAlpha();
 
+    /*
+       TEMP TEMP TEMP
     if( updateTk2dSprite )
         GetComponent( tk2dSprite ).color.a = globalAlphaCache;
 
@@ -40,14 +46,26 @@ function OnParentAlphaChanged()
 		renderer.material.SetColor("_Color", c);
 	}
 		
+        */
+
+    if( updateGuiTexture && guiTexture )
+        guiTexture.color.a = globalAlphaCache;
 }
+
+private var isBroadcasting = false;
 
 function SetLocalAlpha( value:float, triggerBroadcast:boolean )
 {
     localAlpha = value;
+    OnParentAlphaChanged();
 
-    if( triggerBroadcast )
+    if( triggerBroadcast && !isBroadcasting )
+    {
+        // guard to prevent infinite recursion
+        isBroadcasting = true;
         BroadcastMessage( "OnParentAlphaChanged", SendMessageOptions.DontRequireReceiver );
+        isBroadcasting = false;
+    }
 }
 
 function GetGlobalAlpha() : float
