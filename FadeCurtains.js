@@ -14,10 +14,7 @@ function Awake()
 {
     Utils.Assert( main == null );
     main = this;
-}
 
-function Start()
-{
     if( startOpen )
     {
         alpha.Set(0.0);
@@ -28,6 +25,10 @@ function Start()
         alpha.Set(1.0);
         state = "closed";
     }
+}
+
+function Start()
+{
 }
 
 function Open()

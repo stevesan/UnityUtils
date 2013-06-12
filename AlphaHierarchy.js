@@ -16,11 +16,8 @@ private var origLightIntensity = 1.0;
 
 function Awake()
 {
-    /* TEMP TEMP
-
     if( updateLightIntensity && light )
         origLightIntensity = light.intensity;
-        */
 }
 
 function Start()
