@@ -135,7 +135,7 @@ static function To2Array( v:Vector3 ) : float[]
 
 static function SetTexture( obj : GameObject, tex : Texture2D )
 {
-	obj.renderer.material.mainTexture = tex;
+	obj.GetComponent.<Renderer>().material.mainTexture = tex;
 }
 
 static function SetParticleMatOpacity( mat : Material, frac : float )

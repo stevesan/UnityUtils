@@ -5,7 +5,7 @@ function Start () {
 }
 
 function Update () {
-	if( rigidbody && rigidbody.IsSleeping() )
-			rigidbody.WakeUp();
+	if( GetComponent.<Rigidbody>() && GetComponent.<Rigidbody>().IsSleeping() )
+			GetComponent.<Rigidbody>().WakeUp();
 }
 

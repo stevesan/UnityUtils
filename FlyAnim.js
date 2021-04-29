@@ -57,20 +57,20 @@ function Update () {
 		else
 			transform.position = value;
 
-		if( renderer )
-			renderer.enabled = true;
+		if( GetComponent.<Renderer>() )
+			GetComponent.<Renderer>().enabled = true;
 
 		remainSecs -= Time.deltaTime;
 	}
 	else
 	{
-		if( renderer ) {
+		if( GetComponent.<Renderer>() ) {
 			if( showUntilNextTrigger )
-				renderer.enabled = true;
+				GetComponent.<Renderer>().enabled = true;
 			else {	
 				if( hideOnEnd )
 				{
-					renderer.enabled = false;
+					GetComponent.<Renderer>().enabled = false;
 				}
 			}
 		}

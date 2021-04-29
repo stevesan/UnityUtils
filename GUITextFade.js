@@ -3,11 +3,11 @@
 private var origColor:Color;
 
 function Awake () {
-	origColor = guiText.material.color;
+	origColor = GetComponent.<GUIText>().material.color;
 }
 
 function SetFadeAmount( t:float ) {
-	guiText.material.color.a = t*origColor.a;
+	GetComponent.<GUIText>().material.color.a = t*origColor.a;
 }
 
 function Update () {

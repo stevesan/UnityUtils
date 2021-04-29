@@ -16,8 +16,8 @@ private var origLightIntensity = 1.0;
 
 function Awake()
 {
-    if( updateLightIntensity && light )
-        origLightIntensity = light.intensity;
+    if( updateLightIntensity && GetComponent.<Light>() )
+        origLightIntensity = GetComponent.<Light>().intensity;
 }
 
 function Start()
@@ -61,21 +61,21 @@ function OnParentAlphaChanged()
     if( updateTk2dSprite )
         GetComponent( tk2dSprite ).color.a = globalAlphaCache;
 
-    if( updateGuiText && guiText != null )
-        guiText.material.color.a = globalAlphaCache;
+    if( updateGuiText && GetComponent.<GUIText>() != null )
+        GetComponent.<GUIText>().material.color.a = globalAlphaCache;
 
-    if( updateLightIntensity && light )
-        light.intensity = globalAlphaCache * origLightIntensity;
+    if( updateLightIntensity && GetComponent.<Light>() )
+        GetComponent.<Light>().intensity = globalAlphaCache * origLightIntensity;
 
 	if( updateMaterialColor )
 	{
-		var c = renderer.material.GetColor("_Color");
+		var c = GetComponent.<Renderer>().material.GetColor("_Color");
 		c.a = globalAlphaCache;
-		renderer.material.SetColor("_Color", c);
+		GetComponent.<Renderer>().material.SetColor("_Color", c);
 	}
 
-    if( updateGuiTexture && guiTexture )
-        guiTexture.color.a = globalAlphaCache;
+    if( updateGuiTexture && GetComponent.<GUITexture>() )
+        GetComponent.<GUITexture>().color.a = globalAlphaCache;
 }
 
 private var isBroadcasting = false;

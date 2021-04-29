@@ -40,7 +40,7 @@ function Start () {
 	}
 
 	// hide prefab
-	flakePrefab.renderer.enabled = false;
+	flakePrefab.GetComponent.<Renderer>().enabled = false;
 }
 
 function Update () {

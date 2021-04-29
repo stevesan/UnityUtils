@@ -25,7 +25,7 @@ private var playing : boolean = false;
 
 function Awake() {
 	// set the UV scale properly
-	for( var mat in renderer.materials )
+	for( var mat in GetComponent.<Renderer>().materials )
 	{
 		if( overrideTexture != null )
 			mat.SetTexture('_MainTex', overrideTexture);
@@ -73,7 +73,7 @@ function Update () {
 			var col = (currFrame % numCols);
 			var row = (currFrame - col)/numRows;
 
-			for( var mat in renderer.materials )
+			for( var mat in GetComponent.<Renderer>().materials )
 			{
 				var atlas = mat.GetTexture('_MainTex');
 				var uOfs = (col * framePixels.x) / atlas.width;

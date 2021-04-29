@@ -5,7 +5,7 @@ function SetTexture( i:int )
 {
 	if( i < textures.length )
 	{
-		renderer.material.mainTexture = textures[i];
+		GetComponent.<Renderer>().material.mainTexture = textures[i];
 	}
 	else
 	{
@@ -15,7 +15,7 @@ function SetTexture( i:int )
 
 function SetColor( c : Color )
 {
-	renderer.material.color = c;
+	GetComponent.<Renderer>().material.color = c;
 }
 
 function Update () {

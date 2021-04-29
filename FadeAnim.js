@@ -42,9 +42,9 @@ function SetFade(value:float)
 function SetOpacity( frac : float )
 {
 	// works for particle shaders only..
-	var c = renderer.material.GetColor(targetColorName);
+	var c = GetComponent.<Renderer>().material.GetColor(targetColorName);
 	c.a = frac / 2.0;	// for whatever reason, the tint color makes the rendering fully opaque when alpha = 0.5..
-	renderer.material.SetColor(targetColorName, c);
+	GetComponent.<Renderer>().material.SetColor(targetColorName, c);
 }
 
 function Update () {

@@ -21,7 +21,7 @@ private var loops = -1;
 function SetFrame( i:int )
 {
 	if( i < frames.length ) {
-		renderer.material.mainTexture = frames[i];
+		GetComponent.<Renderer>().material.mainTexture = frames[i];
 	}
 	else {
 		Debug.LogError('index = ' +i+ ' is out of range for frames list, my name = ' + gameObject.name);
